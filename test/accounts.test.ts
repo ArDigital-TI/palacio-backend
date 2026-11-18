@@ -3,35 +3,9 @@
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { after, test } from "node:test";
-import { deleteApp, getApps, initializeApp } from "firebase/app";
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth } from "firebase/auth";
-import { connectFirestoreEmulator, doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
-
-/** Un usuario nuevo del emulador, con su propia instancia del SDK. */
-async function newUser() {
-  const app = initializeApp({ projectId: "demo-palacio", apiKey: "fake-api-key" }, randomUUID());
-  const auth = getAuth(app);
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  const db = getFirestore(app);
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  const functions = getFunctions(app);
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-
-  const email = `${randomUUID()}@test.palacio`;
-  const { user } = await createUserWithEmailAndPassword(auth, email, "palacio-test");
-  const call = (name: string, data?: unknown) => httpsCallable(functions, name)(data);
-  const account = async (uid = user.uid) => (await getDoc(doc(db, "accounts", uid))).data();
-  return { uid: user.uid, email, db, call, account };
-}
-
-// Cierra las conexiones del SDK; si no, el proceso de los tests no termina.
-after(() => Promise.all(getApps().map(deleteApp)));
-
-async function assertDenied(promise: Promise<unknown>) {
-  await assert.rejects(promise, { code: "permission-denied" });
-}
+import { test } from "node:test";
+import { doc, setDoc } from "firebase/firestore";
+import { assertDenied, newUser } from "./helpers.ts";
 
 test("registerAccount crea la cuenta pendiente con un código de activación", async () => {
   const user = await newUser();

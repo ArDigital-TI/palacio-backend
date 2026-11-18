@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Lo que no está permitido acá está prohibido. `accounts` y `appointments` se escriben solo desde las Functions.
 // El acceso sale de los claims del token (ADR 0002): `affiliateId`, `holderId` y `role`; sin `get()` sobre `accounts`.
+// Única lectura dentro de las reglas: `isMyDependent`, al crear una solicitud de asistencia (ver ADR 0002).
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -29,6 +30,38 @@ service cloud.firestore {
     // Sin claims (cuenta pendiente o revocada) no lee ninguno. Los horarios libres salen de `availableSlots`.
     match /appointments/{id} {
       allow read: if signedIn() && me() != null && resource.data.bookedByAccountId == request.auth.uid;
+    }
+
+    // Solicitudes de asistencia: la app las crea directamente, para el propio asociado o, el titular, para un miembro
+    // a cargo; con la cuenta propia como solicitante, el estado inicial y solo los campos conocidos. Solo las lee
+    // quien las hizo. El estado lo avanza después el sistema de la Fundación, no la app.
+    match /assistRequests/{id} {
+      allow read: if signedIn() && me() != null && resource.data.requestedByAccountId == request.auth.uid;
+      allow create: if signedIn() && me() != null
+        && request.resource.data.keys().hasOnly([
+          "affiliateId", "requestedByAccountId", "address", "latitude", "longitude",
+          "contactName", "contactPhone", "status", "createdAt"])
+        && request.resource.data.requestedByAccountId == request.auth.uid
+        && request.resource.data.status == "received"
+        && request.resource.data.address is string && request.resource.data.address.size() <= 500
+        && request.resource.data.contactName is string && request.resource.data.contactName.size() <= 100
+        && request.resource.data.contactPhone is string && request.resource.data.contactPhone.size() <= 40
+        && (request.resource.data.get("latitude", null) == null || request.resource.data.latitude is number)
+        && (request.resource.data.get("longitude", null) == null || request.resource.data.longitude is number)
+        && request.resource.data.createdAt is number
+        && math.abs(request.resource.data.createdAt - request.time.toMillis()) < 5 * 60 * 1000
+        && (request.resource.data.affiliateId == me() || (isHolder() && isMyDependent(request.resource.data.affiliateId)));
+    }
+
+    // Miembro a cargo del titular: adherente suyo y menor de 18. Es la única lectura dentro de las reglas: el claim no
+    // lista a los miembros a cargo (la edad cambia con el tiempo), y solo se hace al crear una solicitud.
+    function isMyDependent(affiliateId) {
+      let affiliate = get(/databases/$(database)/documents/affiliates/$(affiliateId)).data;
+      let birth = affiliate.birthDate.split("-");
+      // Nacido un 29 de febrero: cumple el 1 de marzo, como en `ageOn` de la app (los 18 años nunca caen en bisiesto).
+      let leapDay = birth[1] == "02" && birth[2] == "29";
+      return affiliate.holderId == me()
+        && timestamp.date(int(birth[0]) + 18, leapDay ? 3 : int(birth[1]), leapDay ? 1 : int(birth[2])) > request.time;
     }
 
     // Cada cuenta lee su propio documento (el id es el uid). El titular lee las cuentas que validó: las de su familia.

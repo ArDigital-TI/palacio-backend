@@ -1,11 +1,32 @@
 rules_version = '2';
 
-// Lo que no está permitido acá está prohibido. `accounts` se escribe solo desde las Functions.
+// Lo que no está permitido acá está prohibido. `accounts` y `appointments` se escriben solo desde las Functions.
+// El acceso sale de los claims del token (ADR 0002): `affiliateId`, `holderId` y `role`; sin `get()` sobre `accounts`.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Cada cuenta lee solo su propio documento (el id es el uid de Firebase Auth).
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.token.get("affiliateId", null); }
+    function isHolder() { return request.auth.token.get("role", null) == "holder"; }
+
+    // Catálogo y configuración: cualquier cuenta con sesión.
+    match /professionals/{id} { allow read: if signedIn(); }
+    match /studies/{id} { allow read: if signedIn(); }
+    match /sites/{id} { allow read: if signedIn(); }
+    match /config/{id} { allow read: if signedIn(); }
+
+    // El propio asociado; el titular, además, los de su familia. El adherente lee solo el suyo.
+    // Cada uno edita solo su contacto: el resto de los datos se modifica en la sede.
+    match /affiliates/{id} {
+      allow read: if signedIn() && me() != null && (id == me() || (isHolder() && resource.data.holderId == me()));
+      allow update: if signedIn() && me() != null && id == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["phone", "email"])
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+        && request.resource.data.email is string && request.resource.data.email.size() <= 254;
+    }
+
+    // Cada cuenta lee su propio documento (el id es el uid). El titular lee las cuentas que validó: las de su familia.
     match /accounts/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || (isHolder() && me() != null && resource.data.validatedBy == me()));
     }
   }
 }

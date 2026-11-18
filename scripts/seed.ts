@@ -40,11 +40,12 @@ af("a15", "Gabriela", "Paz", "31209876", "FP-103670-00", "family", "1985-10-28",
 af("a16", "Sergio", "Cruz", "27554310", "FP-101987-00", "comprehensive", "1979-04-14", null, "385 555-6158", "sergio.cruz@correo.com");
 
 const accounts: Record<string, object> = {};
-function ac(id: string, affiliateId: string, role: string, email: string, activationCode: string) {
-  accounts[id] = { affiliateId, role, email, activationCode, status: "active" };
+// `validatedBy`: el titular que validó al adherente; con él, el titular lee las cuentas de su familia.
+function ac(id: string, affiliateId: string, role: string, email: string, activationCode: string, validatedBy?: string) {
+  accounts[id] = { affiliateId, role, email, activationCode, status: "active", ...(validatedBy && { validatedBy }) };
 }
 ac("c1", "a1", "holder", "marcelo.araoz@correo.com", "4821");
-ac("c2", "a3", "adherent", "facu.araoz@gmail.com", "1937");
+ac("c2", "a3", "adherent", "facu.araoz@gmail.com", "1937", "a1");
 ac("c3", "a7", "holder", "jcgutierrez@correo.com", "5502");
 ac("c4", "a9", "holder", "lucia.figueroa@correo.com", "7714");
 ac("c5", "a12", "holder", "diego.sosa@correo.com", "3068");

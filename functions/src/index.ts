@@ -4,10 +4,13 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, type Query, type QuerySnapshot, type Transaction } from "firebase-admin/firestore";
+import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { randomInt } from "node:crypto";
 
 initializeApp();
+// São Paulo, junto a Firestore. La app y los tests llaman en la misma región.
+setGlobalOptions({ region: "southamerica-east1" });
 // La base tiene nombre (no `(default)`): la misma en el emulador, la app, la semilla y los tests.
 const db = getFirestore("palacio-app");
 

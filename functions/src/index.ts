@@ -24,7 +24,7 @@ function uidOf(request: CallableRequest): string {
 /** Los mismos nombres que `DomainError` de la app; se agregan a medida que se portan las reglas. */
 type DomainError =
   | "INVALID_CODE" | "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE" | "SLOT_TAKEN"
-  | "NOT_IN_FAMILY" | "UNDER_18" | "ALREADY_LINKED" | "LINK_EXPIRED";
+  | "NOT_IN_FAMILY" | "UNDER_18" | "ALREADY_LINKED" | "LINK_EXPIRED" | "CANNOT_REVOKE";
 
 /** Respuesta de las Functions con reglas de negocio: éxito (`error: null`) o un error de dominio. */
 type Result = { error: DomainError | null };
@@ -289,6 +289,16 @@ function requireHolder(request: CallableRequest): string {
   return me;
 }
 
+/** La cuenta vinculada al asociado (activa o esperando la aceptación), como `isLinked` de la app. */
+const linkedAccountOf = (tx: Transaction, memberId: string) =>
+  tx.get(db.collection("accounts").where("affiliateId", "==", memberId).where("status", "in", ["active", "awaiting_acceptance"]).limit(1));
+
+/** La cuenta vuelve a pendiente, sin asociado y con un token nuevo: lo que tienen en común rechazar y revocar. */
+const unlinked = () => ({
+  affiliateId: null, status: "pending", validatedBy: null,
+  validatedByName: null, affiliateName: null, affiliateDni: null, ...freshLinkToken(),
+});
+
 const fullName = (affiliate: { get(field: string): unknown }) => `${affiliate.get("firstName")} ${affiliate.get("lastName")}`;
 
 /** El titular ve el correo de la cuenta pendiente detrás de un token o enlace vigente, antes de validarla. */
@@ -311,9 +321,7 @@ export const validateAdherent = onCall<{ memberId?: unknown; tokenOrLink?: unkno
     const [member, holder] = await Promise.all([tx.get(db.doc(`affiliates/${memberId}`)), tx.get(db.doc(`affiliates/${holderId}`))]);
     if (!member.exists || member.get("holderId") !== holderId) return fail("NOT_IN_FAMILY");
     if (age(member.get("birthDate")) < 18) return fail("UNDER_18");
-    const linked = await tx.get(
-      db.collection("accounts").where("affiliateId", "==", memberId).where("status", "in", ["active", "awaiting_acceptance"]).limit(1),
-    );
+    const linked = await linkedAccountOf(tx, memberId);
     if (!linked.empty) return fail("ALREADY_LINKED");
     const account = await findByLinkToken((q) => tx.get(q), request.data?.tokenOrLink);
     if (!account) return fail("LINK_EXPIRED");
@@ -339,7 +347,7 @@ export const accept = onCall(async (request) => {
     if (account.get("status") !== "awaiting_acceptance" || !memberId) return undefined;
     const member = await tx.get(db.doc(`affiliates/${memberId}`));
     if (!member.exists) return undefined;
-    tx.update(ref, { status: "active", revokedBy: null });
+    tx.update(ref, { status: "active", revokedBy: null, revokedByName: null });
     if (!member.get("email")) tx.update(member.ref, { email: account.get("email") ?? "" });
     return { affiliateId: memberId as string, holderId: account.get("validatedBy") as string };
   });
@@ -351,11 +359,38 @@ export const reject = onCall(async (request) => {
   const ref = db.doc(`accounts/${uidOf(request)}`);
   await db.runTransaction(async (tx) => {
     if ((await tx.get(ref)).get("status") !== "awaiting_acceptance") return;
-    tx.update(ref, {
-      affiliateId: null, status: "pending", validatedBy: null,
-      validatedByName: null, affiliateName: null, affiliateDni: null, ...freshLinkToken(),
-    });
+    tx.update(ref, unlinked());
   });
+});
+
+/**
+ * El titular le saca el acceso a un adherente de su familia, vinculado o esperando la aceptación: la cuenta vuelve a
+ * pendiente con un token nuevo, como `revokeAdherent` de la app, y guarda quién revocó (con su nombre, porque la cuenta
+ * pendiente no lee asociados). Después le saca los claims y revoca sus tokens (ADR 0002).
+ */
+export const revoke = onCall<{ memberId?: unknown }>(async (request): Promise<Result> => {
+  // Sin `requireHolder`: como en la app, quien no es el titular del miembro recibe CANNOT_REVOKE, no un permiso denegado.
+  const holderId = request.auth?.token.affiliateId;
+  const memberId = text(request.data?.memberId);
+  if (!holderId || !memberId) return fail("CANNOT_REVOKE");
+  const revoked = await db.runTransaction(async (tx): Promise<Result & { uid?: string }> => {
+    const [member, holder] = await Promise.all([tx.get(db.doc(`affiliates/${memberId}`)), tx.get(db.doc(`affiliates/${holderId}`))]);
+    const linked = await linkedAccountOf(tx, memberId);
+    if (!member.exists || member.get("holderId") !== holderId || linked.empty) return fail("CANNOT_REVOKE");
+    const account = linked.docs[0];
+    tx.update(account.ref, {
+      ...unlinked(), revokedBy: holderId, revokedByName: holder.exists ? fullName(holder) : null, revokedAt: Date.now(),
+    });
+    return { ...ok, uid: account.id };
+  });
+  if (revoked.error) return fail(revoked.error);
+
+  // Como en `activateHolder`, los claims cambian después de confirmar la cuenta.
+  // ponytail: si este paso falla, la cuenta queda pendiente pero conserva los claims, y reintentar devuelve
+  // CANNOT_REVOKE. Si pasa, reintentar los claims de las cuentas pendientes.
+  await getAuth().setCustomUserClaims(revoked.uid!, null);
+  await getAuth().revokeRefreshTokens(revoked.uid!);
+  return ok;
 });
 
 /**

@@ -31,7 +31,7 @@ La variante `dev` entra con una cuenta real de Google contra un proyecto real de
 ### Una sola vez, en la consola de Firebase
 
 1. Crear el proyecto (por ejemplo `palacio-dev`) y pasarlo al plan **Blaze**, porque las Functions lo necesitan.
-2. **Firestore Database**: crear la base en modo producción. Las reglas se despliegan después.
+2. **Firestore Database**: crear la base `palacio-app` (el nombre que usan las Functions y la app) en modo producción. Las reglas se despliegan después.
 3. **Authentication → Sign-in method**: habilitar **Google**. En la configuración del proveedor, copiar el **ID de cliente web** (Web client ID).
 4. **Configuración del proyecto → Tus apps**: agregar una app Android con:
    - paquete `com.fundacionpalacio.asociados.dev`;

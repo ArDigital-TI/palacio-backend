@@ -8,7 +8,8 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { randomInt } from "node:crypto";
 
 initializeApp();
-const db = getFirestore();
+// La base tiene nombre (no `(default)`): la misma en el emulador, la app, la semilla y los tests.
+const db = getFirestore("palacio-app");
 
 // Iguales que en la app: `LINK_TTL_MS` (AccountRules.kt) y el alfabeto de `FakeStore`.
 const LINK_TTL_MS = 60_000;

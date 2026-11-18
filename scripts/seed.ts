@@ -149,14 +149,14 @@ const users: SeedUser[] = [
 
 async function clearEmulators() {
   const responses = await Promise.all([
-    fetch(`http://${FIRESTORE_HOST}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: "DELETE" }),
+    fetch(`http://${FIRESTORE_HOST}/emulator/v1/projects/${PROJECT_ID}/databases/palacio-app/documents`, { method: "DELETE" }),
     fetch(`http://${AUTH_HOST}/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: "DELETE" }),
   ]);
   for (const r of responses) if (!r.ok) throw new Error(`No se pudo borrar el emulador: ${r.url} → ${r.status}`);
 }
 
 initializeApp({ projectId: PROJECT_ID });
-const db = getFirestore();
+const db = getFirestore("palacio-app");
 const auth = getAuth();
 
 if (!REAL_PROJECT) await clearEmulators();

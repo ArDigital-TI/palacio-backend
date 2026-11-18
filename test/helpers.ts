@@ -13,7 +13,7 @@ import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 
 // `emulators:exec` define FIRESTORE_EMULATOR_HOST y FIREBASE_AUTH_EMULATOR_HOST: el Admin SDK va al emulador.
 initializeAdmin({ projectId: "demo-palacio" });
-export const adminDb = getAdminFirestore();
+export const adminDb = getAdminFirestore("palacio-app");
 export const adminAuth = getAdminAuth();
 
 /** Un usuario nuevo del emulador, con su propia instancia del SDK. Con `claims`, los recibe antes de iniciar sesión. */
@@ -21,7 +21,7 @@ export async function newUser(claims?: object) {
   const app = initializeApp({ projectId: "demo-palacio", apiKey: "fake-api-key" }, randomUUID());
   const auth = getAuth(app);
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  const db = getFirestore(app);
+  const db = getFirestore(app, "palacio-app");
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   const functions = getFunctions(app);
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);

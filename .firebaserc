@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-palacio"
+    "default": "demo-palacio",
+    "dev": "palacio-mobile-a61b7"
   }
 }

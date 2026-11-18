@@ -3,7 +3,7 @@
 
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, type Transaction } from "firebase-admin/firestore";
+import { getFirestore, type Query, type QuerySnapshot, type Transaction } from "firebase-admin/firestore";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { randomInt } from "node:crypto";
 
@@ -22,7 +22,7 @@ function uidOf(request: CallableRequest): string {
 }
 
 /** Los mismos nombres que `DomainError` de la app; se agregan a medida que se portan las reglas. */
-type DomainError = "INVALID_CODE" | "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE";
+type DomainError = "INVALID_CODE" | "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE" | "SLOT_TAKEN";
 
 /** Respuesta de las Functions con reglas de negocio: éxito (`error: null`) o un error de dominio. */
 type Result = { error: DomainError | null };
@@ -136,4 +136,133 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
   // ponytail: si este paso falla, la cuenta queda activa sin claims; reintentar devuelve ALREADY_ACTIVE.
   await getAuth().setCustomUserClaims(activated.uid!, { affiliateId, holderId: affiliateId, role: "holder" });
   return ok;
+});
+
+// --- Turnos ---
+
+// ponytail: zona horaria fija de las sedes (Argentina, UTC-3, sin horario de verano). Si hay sedes en otra zona,
+// pasa a ser un dato de la sede.
+const ZONE_OFFSET_MS = -3 * 60 * 60_000;
+const SLOT_MINUTES = 20;
+
+/** FNV-1a de 32 bits sin signo, igual que `fnv1a` de la app (simula la agenda ya tomada). */
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+type Slot = { time: string; at: number; free: boolean };
+
+/**
+ * Franjas de 20 minutos del día, como `slotsFor` de la app: laboratorio de 07:00 a 09:40, el resto de 08:00 a 12:40.
+ * No está libre una franja pasada, una del patrón fijo ni una de `takenAts` (turnos confirmados del recurso y sede).
+ */
+function slotsFor(kind: string, resourceId: string, siteId: string, date: string, takenAts: Set<number>): Slot[] {
+  const [from, to] = kind === "lab" ? [7 * 60, 9 * 60 + 40] : [8 * 60, 12 * 60 + 40];
+  const midnight = midnightOf(date);
+  const slots: Slot[] = [];
+  for (let min = from; min <= to; min += SLOT_MINUTES) {
+    const time = `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+    const at = midnight + min * 60_000;
+    const taken = fnv1a(`${resourceId}${siteId}${date}T${time}`) % 4 === 0 || takenAts.has(at);
+    slots.push({ time, at, free: at > Date.now() && !taken });
+  }
+  return slots;
+}
+
+/** Las 00:00 de la fecha `YYYY-MM-DD` en la zona de las sedes, en milisegundos epoch. */
+function midnightOf(date: string): number {
+  const [year, month, day] = date.split("-").map(Number);
+  return Date.UTC(year, month - 1, day) - ZONE_OFFSET_MS;
+}
+
+/** La fecha `YYYY-MM-DD` de un instante, en la zona de las sedes. */
+const dateOf = (at: number) => new Date(at + ZONE_OFFSET_MS).toISOString().slice(0, 10);
+
+/** Turnos confirmados del recurso y sede ese día (la sede vacía es la de los turnos médicos, sin sede). */
+async function takenAts(read: (q: Query) => Promise<QuerySnapshot>, resourceId: string, siteId: string, date: string) {
+  const from = midnightOf(date);
+  const booked = await read(
+    db.collection("appointments").where("resourceId", "==", resourceId).where("status", "==", "confirmed")
+      .where("at", ">=", from).where("at", "<", from + 24 * 60 * 60_000),
+  );
+  return new Set(booked.docs.filter((d) => (d.get("siteId") ?? "") === siteId).map((d) => d.get("at") as number));
+}
+
+/**
+ * Lanza `permission-denied` si quien llama no gestiona al asociado: él mismo o, si es titular, un miembro a cargo.
+ * Mismo criterio que `managedIds` de la app.
+ */
+async function assertManages(request: CallableRequest, affiliateId: string) {
+  const me = request.auth?.token.affiliateId;
+  if (!me) throw new HttpsError("permission-denied", "La cuenta no está activa.");
+  if (affiliateId === me) return;
+  const member = await db.doc(`affiliates/${affiliateId}`).get();
+  const isDependent = member.exists && member.get("holderId") === me && age(member.get("birthDate")) < 18;
+  if (request.auth?.token.role !== "holder" || !isDependent) throw new HttpsError("permission-denied", "No gestiona a ese asociado.");
+}
+
+const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const text = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** Horarios de un recurso, sede y día: solo la hora y si está libre, sin datos de los turnos ajenos. */
+export const availableSlots = onCall<{ kind?: unknown; resourceId?: unknown; siteId?: unknown; date?: unknown }>(async (request) => {
+  if (!request.auth?.token.affiliateId) throw new HttpsError("permission-denied", "La cuenta no está activa.");
+  const { kind, resourceId, siteId, date } = request.data ?? {};
+  if (!isDate(date) || !text(resourceId)) throw new HttpsError("invalid-argument", "Faltan el recurso o la fecha.");
+  const taken = await takenAts((q) => q.get(), text(resourceId), text(siteId), date);
+  return slotsFor(text(kind), text(resourceId), text(siteId), date, taken);
+});
+
+/** Dónde está el recurso de cada tipo de turno; los tipos son los de `AppointmentKind` de la app. */
+const RESOURCE_COLLECTION: Record<string, string> = { medical: "professionals", lab: "studies", imaging: "studies" };
+
+type BookRequest = {
+  id?: unknown; affiliateId?: unknown; kind?: unknown; mode?: unknown;
+  resourceId?: unknown; siteId?: unknown; at?: unknown; contactPhone?: unknown;
+};
+
+/**
+ * Reserva un turno confirmado para quien llama o un miembro a cargo. Verifica la franja y escribe en la misma
+ * transacción: de dos reservas del mismo horario, una devuelve `SLOT_TAKEN`. Respeta el id que manda la app.
+ */
+export const book = onCall<BookRequest>(async (request): Promise<Result> => {
+  const d = request.data ?? {};
+  const affiliateId = text(d.affiliateId), kind = text(d.kind), resourceId = text(d.resourceId);
+  const siteId = kind === "medical" ? "" : text(d.siteId);
+  const mode = text(d.mode) || "in_person";
+  const at = typeof d.at === "number" ? d.at : NaN;
+  if (!RESOURCE_COLLECTION[kind] || !["in_person", "telemedicine"].includes(mode) || !resourceId || !Number.isFinite(at)) {
+    throw new HttpsError("invalid-argument", "Turno incompleto.");
+  }
+  await assertManages(request, affiliateId);
+  const resource = await db.doc(`${RESOURCE_COLLECTION[kind]}/${resourceId}`).get();
+  if (!resource.exists || (kind !== "medical" && !(resource.get("siteIds") ?? []).includes(siteId))) {
+    throw new HttpsError("invalid-argument", "El profesional o el estudio no existe en esa sede.");
+  }
+
+  const ref = d.id ? db.doc(`appointments/${text(d.id)}`) : db.collection("appointments").doc();
+  return db.runTransaction(async (tx) => {
+    const date = dateOf(at);
+    const taken = await takenAts((q) => tx.get(q), resourceId, siteId, date);
+    const slot = slotsFor(kind, resourceId, siteId, date, taken).find((s) => s.at === at);
+    if (!slot?.free) return fail("SLOT_TAKEN");
+    if ((await tx.get(ref)).exists) throw new HttpsError("already-exists", "Ya existe un turno con ese id.");
+    tx.create(ref, {
+      affiliateId, bookedByAccountId: request.auth!.uid, kind, mode, resourceId, siteId: siteId || null, at,
+      status: "confirmed", contactPhone: mode === "telemedicine" ? text(d.contactPhone) : null,
+    });
+    return ok;
+  });
+});
+
+/** Cancela un turno confirmado propio o de un miembro a cargo, y nada más. */
+export const cancel = onCall<{ appointmentId?: unknown }>(async (request) => {
+  const id = text(request.data?.appointmentId);
+  const appointment = id ? await db.doc(`appointments/${id}`).get() : undefined;
+  if (!appointment?.exists) throw new HttpsError("not-found", "El turno no existe.");
+  await assertManages(request, appointment.get("affiliateId"));
+  if (appointment.get("status") !== "confirmed") throw new HttpsError("failed-precondition", "El turno no está confirmado.");
+  await appointment.ref.update({ status: "cancelled" });
 });

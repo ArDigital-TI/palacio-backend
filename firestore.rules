@@ -24,6 +24,13 @@ service cloud.firestore {
         && request.resource.data.email is string && request.resource.data.email.size() <= 254;
     }
 
+    // Una cuenta activa lee los turnos que reservó. Alcanza para "los propios y, el titular, los de sus miembros a cargo":
+    // solo el titular reserva para sus miembros a cargo (`book` lo verifica) y los demás reservan para sí mismos.
+    // Sin claims (cuenta pendiente o revocada) no lee ninguno. Los horarios libres salen de `availableSlots`.
+    match /appointments/{id} {
+      allow read: if signedIn() && me() != null && resource.data.bookedByAccountId == request.auth.uid;
+    }
+
     // Cada cuenta lee su propio documento (el id es el uid). El titular lee las cuentas que validó: las de su familia.
     match /accounts/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || (isHolder() && me() != null && resource.data.validatedBy == me()));

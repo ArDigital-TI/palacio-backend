@@ -4,9 +4,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
-import { adminDb, newUser } from "./helpers.ts";
-
-const yearsAgo = (years: number) => `${new Date().getFullYear() - years}-01-01`;
+import { adminDb, newUser, yearsAgo } from "./helpers.ts";
 
 /** Un asociado nuevo, con id propio para no chocar con otros tests. */
 async function affiliate(fields: { holderId?: string | null; birthDate?: string } = {}) {

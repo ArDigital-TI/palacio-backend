@@ -44,3 +44,28 @@ after(() => Promise.all([...getApps().map(deleteApp), adminDb.terminate()]));
 export async function assertDenied(promise: Promise<unknown>) {
   await assert.rejects(promise, { code: "permission-denied" });
 }
+
+export const yearsAgo = (years: number) => `${new Date().getFullYear() - years}-01-01`;
+
+/** Una familia nueva: titular, adherente con cuenta activa y miembro a cargo. Ids propios por test. */
+export async function family() {
+  const id = (name: string) => `${name}-${randomUUID()}`;
+  const holder = id("h"), adherent = id("m"), dependent = id("d");
+  const affiliate = (holderId: string | null, age: number) => ({
+    firstName: "Prueba", lastName: "Familia", dni: "1", number: "FP-0", plan: "family",
+    birthDate: yearsAgo(age), holderId, phone: "381 555-0000", email: "prueba@correo.com",
+  });
+  await Promise.all([
+    adminDb.doc(`affiliates/${holder}`).set(affiliate(null, 50)),
+    adminDb.doc(`affiliates/${adherent}`).set(affiliate(holder, 20)),
+    adminDb.doc(`affiliates/${dependent}`).set(affiliate(holder, 10)),
+  ]);
+  const [holderUser, adherentUser] = await Promise.all([
+    newUser({ affiliateId: holder, holderId: holder, role: "holder" }),
+    newUser({ affiliateId: adherent, holderId: holder, role: "adherent" }),
+  ]);
+  await adminDb.doc(`accounts/${adherentUser.uid}`).set({
+    email: adherentUser.email, status: "active", role: "adherent", affiliateId: adherent, activationCode: "1111", validatedBy: holder,
+  });
+  return { holder, adherent, dependent, holderUser, adherentUser };
+}

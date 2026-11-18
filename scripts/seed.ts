@@ -1,5 +1,5 @@
 // Borra los emuladores y carga los datos de prueba: los mismos que `SeedData.kt` de la app
-// (asociados, cuentas, catálogo y configuración), un usuario de Auth por persona de la demo y el operador.
+// (asociados, cuentas, catálogo, configuración y turnos), un usuario de Auth por persona de la demo y el operador.
 // Uso, con los emuladores levantados: `npm run seed`.
 
 import { initializeApp } from "firebase-admin/app";
@@ -95,6 +95,30 @@ imaging("e10", "Tomografía de cerebro con contraste", "Ayuno de 4 horas. Consul
 const sites = { central: { name: "Sede central" }, norte: { name: "Sede Norte" } };
 const config = { telemedicineLine: "0800-555-0110", dispatchLine: "0800-555-0107" };
 
+// Turnos de `seedAppointments`: desplazamientos en días respecto de hoy, en la hora de las sedes (Argentina, UTC-3).
+// El de telemedicina (t1) queda a 15 minutos de ahora, para que su aviso se vea a cualquier hora.
+const ZONE_OFFSET_MS = -3 * 60 * 60_000;
+const todayMidnight = (() => {
+  const local = new Date(Date.now() + ZONE_OFFSET_MS);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ZONE_OFFSET_MS;
+})();
+const at = (days: number, hour: number, minute: number) => todayMidnight + ((days * 24 + hour) * 60 + minute) * 60_000;
+
+const appointments: Record<string, object> = {};
+function t(
+  id: string, affiliateId: string, kind: string, mode: string, resourceId: string, siteId: string | null,
+  when: number, status: string, contactPhone: string | null = null,
+) {
+  appointments[id] = { affiliateId, bookedByAccountId: "c1", kind, mode, resourceId, siteId, at: when, status, contactPhone };
+}
+t("t1", "a1", "medical", "telemedicine", "p1", null, Date.now() + 15 * 60_000, "confirmed", "381 555-2143");
+t("t2", "a5", "medical", "in_person", "p3", null, at(1, 8, 40), "confirmed");
+t("t3", "a1", "imaging", "in_person", "e7", "central", at(1, 9, 20), "confirmed");
+t("t4", "a1", "medical", "in_person", "p5", null, at(-35, 11, 0), "done");
+t("t5", "a1", "lab", "in_person", "e1", "norte", at(-54, 8, 0), "done");
+t("t6", "a4", "medical", "in_person", "p11", null, at(-77, 9, 20), "done");
+t("t7", "a1", "medical", "in_person", "p9", null, at(-102, 10, 40), "cancelled");
+
 // --- Usuarios de Auth: uno por persona de la demo (mismo correo que `seedPersonas`) y el operador ---
 
 type SeedUser = { uid?: string; email: string; claims?: object };
@@ -125,7 +149,7 @@ const auth = getAuth();
 await clearEmulators();
 
 const batch = db.batch();
-const collections = { affiliates, accounts, professionals, studies, sites };
+const collections = { affiliates, accounts, professionals, studies, sites, appointments };
 for (const [name, docs] of Object.entries(collections)) {
   for (const [id, data] of Object.entries(docs)) batch.set(db.doc(`${name}/${id}`), data);
 }

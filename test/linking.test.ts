@@ -110,11 +110,3 @@ test("aceptar o rechazar sin una validación pendiente no hace nada", async () =
   assert.equal(account?.linkToken, token);
   assert.equal((await user.tokenClaims()).affiliateId, undefined);
 });
-
-test("demoPendingLinkToken: un token vigente, solo para el operador", async () => {
-  const [{ token }, operator, f] = await Promise.all([pendingAdherent(), newUser({ operator: true }), family()]);
-
-  assert.equal(typeof (await operator.call("demoPendingLinkToken")).data, "string");
-  assert.ok(token);
-  await assert.rejects(f.holderUser.call("demoPendingLinkToken"), { code: "functions/permission-denied" });
-});

@@ -396,15 +396,3 @@ export const revoke = onCall<{ memberId?: unknown }>(async (request): Promise<Re
   await getAuth().revokeRefreshTokens(revoked.uid!);
   return ok;
 });
-
-/**
- * Solo para el panel de demo: el token vigente de alguna cuenta pendiente de adherente, para simular que el titular
- * lee el QR con la cámara. Como `pendingLinkToken` de la demo en memoria. Solo el operador.
- * ponytail: herramienta de la demo desplegada junto a las demás; sacarla cuando la app lea el QR con la cámara.
- */
-export const demoPendingLinkToken = onCall(async (request) => {
-  requireOperator(request);
-  const pending = await db.collection("accounts").where("status", "==", "pending").where("role", "==", "adherent").get();
-  const valid = pending.docs.find((d) => d.get("linkToken") && (d.get("linkTokenExpiresAt") ?? 0) > Date.now());
-  return valid?.get("linkToken") ?? null;
-});

@@ -5,6 +5,8 @@
   "scripts": {
     "emulators": "npm --prefix functions run build && firebase emulators:start",
     "seed": "node scripts/seed.ts",
+    "deploy:dev": "firebase deploy --project dev --only functions,firestore:rules,firestore:indexes",
+    "seed:dev": "node scripts/seed.ts --project dev",
     "test": "npm --prefix functions run build && firebase emulators:exec --only auth,firestore,functions \"node --test test/*.test.ts\""
   },
   "devDependencies": {

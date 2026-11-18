@@ -1,14 +1,27 @@
 // Borra los emuladores y carga los datos de prueba: los mismos que `SeedData.kt` de la app
 // (asociados, cuentas, catálogo, configuración y turnos), un usuario de Auth por persona de la demo y el operador.
 // Uso, con los emuladores levantados: `npm run seed`.
+//
+// Con `--project <id>` (`npm run seed:dev`) carga en el proyecto real de desarrollo, con las credenciales de
+// `gcloud auth application-default login`. Ahí no borra nada ni crea usuarios ni cuentas: las cuentas nacen al entrar
+// con Google. Escribe asociados, catálogo, configuración y turnos con los mismos ids, así que repetirlo los reemplaza.
 
+import { readFileSync } from "node:fs";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-const PROJECT_ID = "demo-palacio";
-const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
-const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";
+const projectArg = process.argv.indexOf("--project");
+// Acepta un alias de `.firebaserc` (el de desarrollo es `dev`) o el id del proyecto.
+const aliases: Record<string, string> = JSON.parse(readFileSync(new URL("../.firebaserc", import.meta.url), "utf8")).projects;
+const projectName = projectArg >= 0 ? process.argv[projectArg + 1] : undefined;
+const REAL_PROJECT = projectName && (aliases[projectName] ?? projectName);
+if (projectArg >= 0 && !REAL_PROJECT) throw new Error("Falta el proyecto después de --project.");
+if (REAL_PROJECT === "dev") throw new Error("Falta el alias dev: npx firebase use --add (ver README.md).");
+if (REAL_PROJECT?.startsWith("demo-")) throw new Error(`${REAL_PROJECT} es del emulador: use \`npm run seed\`.`);
+const PROJECT_ID = REAL_PROJECT ?? "demo-palacio";
+const FIRESTORE_HOST = REAL_PROJECT ? "" : (process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080");
+const AUTH_HOST = REAL_PROJECT ? "" : (process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099");
 
 /** Contraseña de todos los usuarios del emulador; la misma que `EMULATOR_PASSWORD` en la app. */
 const EMULATOR_PASSWORD = "palacio-demo";
@@ -146,19 +159,24 @@ initializeApp({ projectId: PROJECT_ID });
 const db = getFirestore();
 const auth = getAuth();
 
-await clearEmulators();
+if (!REAL_PROJECT) await clearEmulators();
 
 const batch = db.batch();
-const collections = { affiliates, accounts, professionals, studies, sites, appointments };
+const collections = REAL_PROJECT
+  ? { affiliates, professionals, studies, sites, appointments }
+  : { affiliates, accounts, professionals, studies, sites, appointments };
 for (const [name, docs] of Object.entries(collections)) {
   for (const [id, data] of Object.entries(docs)) batch.set(db.doc(`${name}/${id}`), data);
 }
 batch.set(db.doc("config/app"), config);
 await batch.commit();
 
-for (const { uid, email, claims } of users) {
-  const user = await auth.createUser({ uid, email, password: EMULATOR_PASSWORD, emailVerified: true });
-  if (claims) await auth.setCustomUserClaims(user.uid, claims);
+if (REAL_PROJECT) {
+  console.log(`Datos de prueba cargados en ${REAL_PROJECT}: ${Object.keys(affiliates).length} asociados, sin cuentas ni usuarios.`);
+} else {
+  for (const { uid, email, claims } of users) {
+    const user = await auth.createUser({ uid, email, password: EMULATOR_PASSWORD, emailVerified: true });
+    if (claims) await auth.setCustomUserClaims(user.uid, claims);
+  }
+  console.log(`Datos de prueba cargados: ${Object.keys(affiliates).length} asociados, ${Object.keys(accounts).length} cuentas, ${users.length} usuarios.`);
 }
-
-console.log(`Datos de prueba cargados: ${Object.keys(affiliates).length} asociados, ${Object.keys(accounts).length} cuentas, ${users.length} usuarios.`);

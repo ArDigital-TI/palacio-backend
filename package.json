@@ -1,0 +1,15 @@
+{
+  "name": "palacio-firebase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "emulators": "npm --prefix functions run build && firebase emulators:start",
+    "seed": "node scripts/seed.ts",
+    "test": "npm --prefix functions run build && firebase emulators:exec --only auth,firestore,functions \"node --test test/*.test.ts\""
+  },
+  "devDependencies": {
+    "firebase": "^13.4.0",
+    "firebase-admin": "^14.5.1",
+    "firebase-tools": "^15.36.0"
+  }
+}

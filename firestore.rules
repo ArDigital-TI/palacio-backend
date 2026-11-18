@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Lo que no está permitido acá está prohibido. `accounts` se escribe solo desde las Functions.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada cuenta lee solo su propio documento (el id es el uid de Firebase Auth).
+    match /accounts/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

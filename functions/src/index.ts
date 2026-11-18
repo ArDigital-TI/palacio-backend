@@ -22,7 +22,9 @@ function uidOf(request: CallableRequest): string {
 }
 
 /** Los mismos nombres que `DomainError` de la app; se agregan a medida que se portan las reglas. */
-type DomainError = "INVALID_CODE" | "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE" | "SLOT_TAKEN";
+type DomainError =
+  | "INVALID_CODE" | "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE" | "SLOT_TAKEN"
+  | "NOT_IN_FAMILY" | "UNDER_18" | "ALREADY_LINKED" | "LINK_EXPIRED";
 
 /** Respuesta de las Functions con reglas de negocio: éxito (`error: null`) o un error de dominio. */
 type Result = { error: DomainError | null };
@@ -265,4 +267,105 @@ export const cancel = onCall<{ appointmentId?: unknown }>(async (request) => {
   await assertManages(request, appointment.get("affiliateId"));
   if (appointment.get("status") !== "confirmed") throw new HttpsError("failed-precondition", "El turno no está confirmado.");
   await appointment.ref.update({ status: "cancelled" });
+});
+
+// --- Vinculación de adherentes ---
+
+/** El token de un enlace (`https://palacio.app/v/<token>`) o el token suelto, como `findByLinkToken` de la app. */
+const tokenOf = (tokenOrLink: unknown) => text(tokenOrLink).trim().split("/").pop() ?? "";
+
+/** La cuenta pendiente de adherente detrás del token si sigue vigente. */
+async function findByLinkToken(read: (q: Query) => Promise<QuerySnapshot>, tokenOrLink: unknown) {
+  const token = tokenOf(tokenOrLink);
+  if (!token) return undefined;
+  const found = await read(db.collection("accounts").where("linkToken", "==", token).limit(1));
+  return found.docs.find((d) =>
+    d.get("status") === "pending" && d.get("role") === "adherent" && (d.get("linkTokenExpiresAt") ?? 0) > Date.now());
+}
+
+function requireHolder(request: CallableRequest): string {
+  const me = request.auth?.token.affiliateId;
+  if (request.auth?.token.role !== "holder" || !me) throw new HttpsError("permission-denied", "Solo para el titular.");
+  return me;
+}
+
+const fullName = (affiliate: { get(field: string): unknown }) => `${affiliate.get("firstName")} ${affiliate.get("lastName")}`;
+
+/** El titular ve el correo de la cuenta pendiente detrás de un token o enlace vigente, antes de validarla. */
+export const previewLink = onCall<{ tokenOrLink?: unknown }>(async (request) => {
+  requireHolder(request);
+  const account = await findByLinkToken((q) => q.get(), request.data?.tokenOrLink);
+  return account ? { accountId: account.id, email: account.get("email") ?? "" } : null;
+});
+
+/**
+ * El titular valida a un adherente de su familia con el token de vinculación: la cuenta pasa a esperar la aceptación.
+ * Mismas reglas y errores que `validateAdherent` de la app. Copia en la cuenta los datos que muestra la pantalla de
+ * aceptación, porque la cuenta todavía no tiene claims para leer asociados.
+ */
+export const validateAdherent = onCall<{ memberId?: unknown; tokenOrLink?: unknown }>(async (request): Promise<Result> => {
+  const holderId = requireHolder(request);
+  const memberId = text(request.data?.memberId);
+  if (!memberId) return fail("NOT_IN_FAMILY");
+  return db.runTransaction(async (tx) => {
+    const [member, holder] = await Promise.all([tx.get(db.doc(`affiliates/${memberId}`)), tx.get(db.doc(`affiliates/${holderId}`))]);
+    if (!member.exists || member.get("holderId") !== holderId) return fail("NOT_IN_FAMILY");
+    if (age(member.get("birthDate")) < 18) return fail("UNDER_18");
+    const linked = await tx.get(
+      db.collection("accounts").where("affiliateId", "==", memberId).where("status", "in", ["active", "awaiting_acceptance"]).limit(1),
+    );
+    if (!linked.empty) return fail("ALREADY_LINKED");
+    const account = await findByLinkToken((q) => tx.get(q), request.data?.tokenOrLink);
+    if (!account) return fail("LINK_EXPIRED");
+    tx.update(account.ref, {
+      affiliateId: memberId, status: "awaiting_acceptance", validatedBy: holderId,
+      validatedByName: holder.exists ? fullName(holder) : null, affiliateName: fullName(member), affiliateDni: member.get("dni") ?? "",
+      linkToken: null, linkTokenExpiresAt: null,
+    });
+    return ok;
+  });
+});
+
+/**
+ * El adherente acepta: la cuenta queda activa y el correo de la cuenta pasa al asociado si no tenía uno, como
+ * `acceptLink` de la app. Los claims van después de confirmar la cuenta (igual que en `activateHolder`).
+ */
+export const accept = onCall(async (request) => {
+  const uid = uidOf(request);
+  const ref = db.doc(`accounts/${uid}`);
+  const accepted = await db.runTransaction(async (tx) => {
+    const account = await tx.get(ref);
+    const memberId = account.get("affiliateId");
+    if (account.get("status") !== "awaiting_acceptance" || !memberId) return undefined;
+    const member = await tx.get(db.doc(`affiliates/${memberId}`));
+    if (!member.exists) return undefined;
+    tx.update(ref, { status: "active", revokedBy: null });
+    if (!member.get("email")) tx.update(member.ref, { email: account.get("email") ?? "" });
+    return { affiliateId: memberId as string, holderId: account.get("validatedBy") as string };
+  });
+  if (accepted) await getAuth().setCustomUserClaims(uid, { ...accepted, role: "adherent" });
+});
+
+/** El adherente rechaza: la cuenta vuelve a pendiente, sin asociado y con un token nuevo, como `rejectLink` de la app. */
+export const reject = onCall(async (request) => {
+  const ref = db.doc(`accounts/${uidOf(request)}`);
+  await db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).get("status") !== "awaiting_acceptance") return;
+    tx.update(ref, {
+      affiliateId: null, status: "pending", validatedBy: null,
+      validatedByName: null, affiliateName: null, affiliateDni: null, ...freshLinkToken(),
+    });
+  });
+});
+
+/**
+ * Solo para el panel de demo: el token vigente de alguna cuenta pendiente de adherente, para simular que el titular
+ * lee el QR con la cámara. Como `pendingLinkToken` de la demo en memoria. Solo el operador.
+ * ponytail: herramienta de la demo desplegada junto a las demás; sacarla cuando la app lea el QR con la cámara.
+ */
+export const demoPendingLinkToken = onCall(async (request) => {
+  requireOperator(request);
+  const pending = await db.collection("accounts").where("status", "==", "pending").where("role", "==", "adherent").get();
+  const valid = pending.docs.find((d) => d.get("linkToken") && (d.get("linkTokenExpiresAt") ?? 0) > Date.now());
+  return valid?.get("linkToken") ?? null;
 });

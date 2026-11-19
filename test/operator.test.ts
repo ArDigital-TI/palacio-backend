@@ -41,6 +41,17 @@ test("activateHolder deja la cuenta activa, vinculada y con sus claims", async (
   assert.deepEqual([claims.affiliateId, claims.holderId, claims.role], [holderId, holderId, "holder"]);
 });
 
+test("activateHolder registra qué operador activó la cuenta y cuándo", async () => {
+  const [op, holderId, { user, code }] = await Promise.all([operator(), affiliate(), pendingHolder()]);
+  const before = Date.now();
+
+  assert.deepEqual(await activate(op, holderId, code), { error: null });
+
+  const account = await user.account();
+  assert.equal(account?.activatedBy, op.uid);
+  assert.ok(account?.activatedAt >= before && account?.activatedAt <= Date.now(), `activatedAt: ${account?.activatedAt}`);
+});
+
 test("activateHolder devuelve los errores de dominio", async () => {
   const [op, holder, minor, adherent, { code }] = await Promise.all([
     operator(), affiliate(), affiliate(), affiliate(), pendingHolder(),

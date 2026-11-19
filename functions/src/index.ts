@@ -132,7 +132,8 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
     if (pending.empty) return fail("INVALID_CODE");
 
     const account = pending.docs[0];
-    tx.update(account.ref, { affiliateId, status: "active" });
+    // Quién activó y cuándo, para poder responder un reclamo.
+    tx.update(account.ref, { affiliateId, status: "active", activatedBy: request.auth!.uid, activatedAt: Date.now() });
     return { ...ok, uid: account.id };
   });
   if (activated.error) return fail(activated.error);

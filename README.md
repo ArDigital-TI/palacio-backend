@@ -25,6 +25,10 @@ El usuario tiene que existir en Auth: se crea la primera vez que la persona entr
 
 `console/` es una página web (Vite, React y el SDK web de Firebase) donde el operador de Adhesiones entra con Google y activa a los titulares con su código. Solo entra quien tiene el acceso de operador; el resto ve «Sin acceso de operador». En el emulador, el popup de Google ofrece a `operadora.google@palacio.test`.
 
+La consola también busca en el padrón por DNI o apellido, muestra la ficha del grupo familiar y, mientras el padrón no llega del sistema de la Fundación, da de alta titulares de prueba con su correo y su teléfono.
+
+Un titular se activa solo si el código es válido **y** la cuenta de Google con que entró es la del correo que tiene en el padrón. En el emulador, entre en la app con el mismo correo del titular de la semilla (por ejemplo `rosa.quispe@correo.com`); en `dev`, los titulares de la semilla tienen correos inventados, así que se prueba con titulares dados de alta desde la consola con el correo real.
+
 ## La app contra el emulador
 
 La variante `local` se conecta sola a `10.0.2.2`, la PC vista desde el emulador de Android. Para un teléfono físico en la misma red, agregue la IP de la PC en `local.properties` del repo de Android:

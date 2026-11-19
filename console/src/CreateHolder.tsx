@@ -3,10 +3,10 @@ import { useState, type FormEvent } from "react";
 import { functions } from "./firebase.ts";
 import { UNEXPECTED_MESSAGE } from "./Holders.tsx";
 
-type HolderData = { firstName: string; lastName: string; dni: string; birthDate: string; plan: string };
+type HolderData = { firstName: string; lastName: string; dni: string; birthDate: string; plan: string; email: string; phone: string };
 const createHolder = httpsCallable<HolderData, { id: string }>(functions, "createHolder");
 
-const EMPTY: HolderData = { firstName: "", lastName: "", dni: "", birthDate: "", plan: "family" };
+const EMPTY: HolderData = { firstName: "", lastName: "", dni: "", birthDate: "", plan: "family", email: "", phone: "" };
 
 /** Último día en que pudo nacer alguien que hoy tiene 18 años, como `YYYY-MM-DD`. */
 function adultBirthDateMax(today = new Date()) {
@@ -44,7 +44,7 @@ export function CreateHolder({ onCreated }: { onCreated: () => void }) {
         code === "functions/already-exists"
           ? "Ese DNI ya está en el padrón."
           : code === "functions/invalid-argument"
-            ? "Revise los datos: el DNI tiene 7 u 8 dígitos y el titular es mayor de 18."
+            ? "Revise los datos: el DNI tiene 7 u 8 dígitos, el titular es mayor de 18 y el correo es válido."
             : UNEXPECTED_MESSAGE,
       );
     } finally {
@@ -59,7 +59,7 @@ export function CreateHolder({ onCreated }: { onCreated: () => void }) {
       </summary>
       <p className="muted">
         Solo para pruebas, mientras el padrón no llega del sistema de la Fundación. El titular queda sin cuenta y se
-        activa como cualquier otro.
+        activa como cualquier otro: con el código de su app, y solo si entró con la cuenta de Google de este correo.
       </p>
       <form className="create-form" onSubmit={submit}>
         <label>
@@ -86,6 +86,14 @@ export function CreateHolder({ onCreated }: { onCreated: () => void }) {
         <label>
           Fecha de nacimiento
           <input required type="date" max={adultBirthDateMax()} {...field("birthDate")} />
+        </label>
+        <label>
+          Correo (su cuenta de Google)
+          <input required type="email" autoComplete="off" {...field("email")} />
+        </label>
+        <label>
+          Teléfono
+          <input required type="tel" autoComplete="off" {...field("phone")} />
         </label>
         <label>
           Plan

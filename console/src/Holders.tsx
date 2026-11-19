@@ -13,10 +13,13 @@ const ERROR_MESSAGES: Record<DomainError, string> = {
   ALREADY_ACTIVE: "Este asociado ya tiene una cuenta activa.",
   INVALID_CODE: "Código inválido. Verifique el código que muestra la app del asociado.",
 };
+export // `reason` lo agrega `activateHolder` cuando el código vale pero el correo de la cuenta no es el del padrón.
+const EMAIL_MISMATCH_MESSAGE =
+  "El correo de la cuenta del titular no coincide con el del padrón. Verifique con el titular qué cuenta de Google eligió.";
 export const UNEXPECTED_MESSAGE = "No se pudo completar. Revise la conexión e intente de nuevo.";
 
 const holdersWithoutAccount = httpsCallable<void, Holder[]>(functions, "holdersWithoutAccount");
-const activateHolder = httpsCallable<{ affiliateId: string; code: string }, { error: DomainError | null }>(
+const activateHolder = httpsCallable<{ affiliateId: string; code: string }, { error: DomainError | null; reason?: "EMAIL_MISMATCH" }>(
   functions,
   "activateHolder",
 );
@@ -113,7 +116,8 @@ export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Hol
     setError(null);
     try {
       const { data } = await activateHolder({ affiliateId: holder.id, code });
-      if (data.error) setError(ERROR_MESSAGES[data.error] ?? UNEXPECTED_MESSAGE);
+      if (data.reason === "EMAIL_MISMATCH") setError(EMAIL_MISMATCH_MESSAGE);
+      else if (data.error) setError(ERROR_MESSAGES[data.error] ?? UNEXPECTED_MESSAGE);
       else onActivated();
     } catch {
       setError(UNEXPECTED_MESSAGE);

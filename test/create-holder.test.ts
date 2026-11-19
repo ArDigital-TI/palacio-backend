@@ -11,7 +11,8 @@ const dni = () => String(randomInt(10_000_000, 100_000_000));
 const randomTag = () => Array.from({ length: 8 }, () => "abcdefghijklmnopqrstuvwxyz"[randomInt(26)]).join("");
 
 const holderData = (fields: object = {}) => ({
-  firstName: "Inés", lastName: `Sánchez${randomTag()}`, dni: dni(), birthDate: yearsAgo(40), plan: "family", ...fields,
+  firstName: "Inés", lastName: `Sánchez${randomTag()}`, dni: dni(), birthDate: yearsAgo(40), plan: "family",
+  email: " Ines.Sanchez@Correo.com ", phone: " 381 555-0101 ", ...fields,
 });
 
 test("createHolder da de alta un titular sin cuenta, que aparece en la lista y en la búsqueda", async () => {
@@ -31,7 +32,7 @@ test("createHolder da de alta un titular sin cuenta, que aparece en la lista y e
     { ...stored, createdAt: undefined },
     {
       firstName: "Inés", lastName: data.lastName, lastNameKey: data.lastName.toLowerCase().replace("á", "a"), dni: data.dni,
-      number: `FP-PRUEBA-${data.dni}`, plan: "family", birthDate: data.birthDate, holderId: null, phone: "", email: "",
+      number: `FP-PRUEBA-${data.dni}`, plan: "family", birthDate: data.birthDate, holderId: null, phone: "381 555-0101", email: "ines.sanchez@correo.com",
       createdBy: op.uid, createdAt: undefined,
     },
   );
@@ -53,6 +54,7 @@ test("createHolder rechaza datos inválidos", async () => {
   for (const fields of [
     { firstName: " " }, { lastName: "" }, { dni: "123456" }, { dni: "12.345.678" }, { birthDate: "1980-13-01" }, { birthDate: "1980-02-31" },
     { birthDate: "ayer" }, { birthDate: yearsAgo(17) }, { plan: "gold" },
+    { email: "" }, { email: "ines.correo.com" }, { email: "ines@correo" }, { phone: " " },
   ]) {
     await assert.rejects(op.call("createHolder", holderData(fields)), { code: "functions/invalid-argument" }, JSON.stringify(fields));
   }

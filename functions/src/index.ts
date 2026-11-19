@@ -113,6 +113,13 @@ export const holdersWithoutAccount = onCall(async (request) => {
 });
 
 /**
+ * El correo de la cuenta no es el del padrón. Para la app de Android es un `INVALID_CODE` (solo lee `error` y lo
+ * convierte con `DomainError.valueOf`); la consola lee `reason` y lo explica.
+ */
+type ActivationResult = Result & { reason?: "EMAIL_MISMATCH" };
+const EMAIL_MISMATCH: ActivationResult = { error: "INVALID_CODE", reason: "EMAIL_MISMATCH" };
+
+/**
  * El operador activa a un titular con el código de activación de su cuenta pendiente: la cuenta queda activa,
  * vinculada al asociado y con sus claims. Mismas reglas y errores que `activateHolder` de la app.
  */
@@ -122,7 +129,7 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
   const code = String(request.data?.code ?? "").trim();
   if (!affiliateId || !code) return fail("INVALID_CODE");
 
-  const activated = await db.runTransaction(async (tx): Promise<Result & { uid?: string }> => {
+  const activated = await db.runTransaction(async (tx): Promise<ActivationResult & { uid?: string }> => {
     const accounts = db.collection("accounts");
     const affiliate = await tx.get(db.doc(`affiliates/${affiliateId}`));
     if (!affiliate.exists) return fail("INVALID_CODE");
@@ -137,11 +144,16 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
     if (pending.empty) return fail("INVALID_CODE");
 
     const account = pending.docs[0];
+    // Seguridad: la cuenta de Google con que entró el titular tiene que ser la del correo que el padrón tiene para él.
+    // Un titular sin correo en el padrón no se activa.
+    const email = (v: unknown) => text(v).trim().toLowerCase();
+    if (!email(affiliate.get("email")) || email(affiliate.get("email")) !== email(account.get("email"))) return EMAIL_MISMATCH;
+
     // Quién activó y cuándo, para poder responder un reclamo.
     tx.update(account.ref, { affiliateId, status: "active", activatedBy: request.auth!.uid, activatedAt: Date.now() });
     return { ...ok, uid: account.id };
   });
-  if (activated.error) return fail(activated.error);
+  if (activated.error) return { error: activated.error, ...(activated.reason && { reason: activated.reason }) };
 
   // Los claims van después de confirmar la cuenta, así solo los recibe la cuenta que quedó activa.
   // La app ve el cambio de estado antes y actualiza el token hasta que los claims coinciden.
@@ -220,7 +232,7 @@ export const affiliateRecord = onCall<{ affiliateId?: unknown }>(async (request)
 });
 
 /**
- * Alta de un titular de prueba en el padrón, sin cuenta. Solo el operador.
+ * Alta de un titular de prueba en el padrón, sin cuenta, con su correo y su teléfono. Solo el operador.
  * ponytail: temporal, hasta que el padrón llegue del sistema de la Fundación; `createdBy` marca estas altas para
  * borrarlas entonces.
  */
@@ -232,10 +244,14 @@ export const createHolder = onCall<Record<string, unknown>>(async (request) => {
   const dni = text(d.dni);
   const birthDate = text(d.birthDate);
   const plan = text(d.plan);
+  // El correo es el de la cuenta de Google del titular: `activateHolder` lo compara con el de su cuenta.
+  const email = text(d.email).trim().toLowerCase();
+  const phone = text(d.phone).trim();
   // La fecha tiene que existir: `Date.parse` da NaN con el mes 13 y corre 1980-02-31 a marzo, que la comparación detecta.
   const time = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? Date.parse(birthDate) : NaN;
   const isRealDate = !Number.isNaN(time) && new Date(time).toISOString().startsWith(birthDate);
-  if (!firstName || !lastName || !/^\d{7,8}$/.test(dni) || !isRealDate || age(birthDate) < 18 || (plan !== "family" && plan !== "comprehensive")) {
+  if (!firstName || !lastName || !/^\d{7,8}$/.test(dni) || !isRealDate || age(birthDate) < 18 || (plan !== "family" && plan !== "comprehensive")
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone) {
     throw new HttpsError("invalid-argument", "Datos del titular inválidos.");
   }
 
@@ -247,7 +263,7 @@ export const createHolder = onCall<Record<string, unknown>>(async (request) => {
     }
     tx.create(ref, {
       firstName, lastName, lastNameKey: searchKey(lastName), dni, number: `FP-PRUEBA-${dni}`, plan, birthDate,
-      holderId: null, phone: "", email: "", createdBy: request.auth!.uid, createdAt: Date.now(),
+      holderId: null, phone, email, createdBy: request.auth!.uid, createdAt: Date.now(),
     });
   });
   return { id: ref.id };

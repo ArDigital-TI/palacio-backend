@@ -1,6 +1,6 @@
 # Backend Firebase
 
-Auth, Firestore y Cloud Functions de la app, para correr en el Emulator Suite (proyecto `demo-palacio`). Ver [ADR 0001](../docs/adr/0001-firebase-emulators-as-local-backend.md).
+Auth, Firestore y Cloud Functions de la app de los asociados ([palacio-android](https://github.com/ArDigital-TI/Palacio_Android)), para correr en el Emulator Suite (proyecto `demo-palacio`) y en el proyecto real `dev`. Ver el [ADR 0001 de Android](https://github.com/ArDigital-TI/Palacio_Android/blob/main/docs/adr/0001-firebase-emulators-as-local-backend.md) y, por qué es un repo aparte, el [ADR 0001](docs/adr/0001-backend-and-operator-console-in-own-repo.md).
 
 Requiere Node 22 o posterior y Java 21. La primera vez:
 
@@ -18,7 +18,7 @@ Los usuarios de prueba son las personas de la demo (Marcelo, Silvia, Facundo y R
 
 ## La app contra el emulador
 
-La variante `local` se conecta sola a `10.0.2.2`, la PC vista desde el emulador de Android. Para un teléfono físico en la misma red, agregue la IP de la PC en `local.properties`:
+La variante `local` se conecta sola a `10.0.2.2`, la PC vista desde el emulador de Android. Para un teléfono físico en la misma red, agregue la IP de la PC en `local.properties` del repo de Android:
 
 ```properties
 palacio.emulatorHost=192.168.0.10
@@ -38,7 +38,7 @@ La variante `dev` entra con una cuenta real de Google contra un proyecto real de
    - el **SHA-1** de la firma de debug, que sale de `.\gradlew.bat signingReport` (en la variante `devDebug`).
 
    Bajar el `google-services.json`. No se agrega al proyecto: solo se usa para leer los valores del paso siguiente.
-5. Agregar los valores a `local.properties`, en la raíz del repo:
+5. Agregar los valores a `local.properties`, en la raíz del repo de Android:
 
    ```properties
    palacio.dev.projectId=<project_info.project_id>
@@ -49,7 +49,7 @@ La variante `dev` entra con una cuenta real de Google contra un proyecto real de
 
 ### Desplegar y cargar los datos de prueba
 
-Desde `firebase/`:
+Desde la raíz de este repo:
 
 ```powershell
 npx firebase login
@@ -64,6 +64,8 @@ La primera vez, `deploy:dev` habilita las APIs que faltan (Cloud Functions, Clou
 - con una clave de cuenta de servicio, poniendo su ruta en `GOOGLE_APPLICATION_CREDENTIALS`.
 
 ### La app
+
+En el repo de Android:
 
 ```powershell
 .\gradlew.bat installDevDebug

@@ -11,8 +11,9 @@ type Session = { status: "loading" } | { status: "signedOut" } | { status: "sign
 export function App() {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [signInError, setSignInError] = useState(false);
-  // Al activar desde la ficha o dar de alta un titular, la lista de titulares sin cuenta se vuelve a pedir.
+  // Al dar de alta un titular, la lista de titulares sin cuenta se vuelve a pedir.
   const [holdersVersion, setHoldersVersion] = useState(0);
+  const [hash, setHash] = useState(location.hash);
 
   const signIn = () => {
     setSignInError(false);
@@ -21,6 +22,12 @@ export function App() {
       if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") setSignInError(true);
     });
   };
+
+  useEffect(() => {
+    const onHashChange = () => setHash(location.hash);
+    addEventListener("hashchange", onHashChange);
+    return () => removeEventListener("hashchange", onHashChange);
+  }, []);
 
   useEffect(
     () =>
@@ -80,16 +87,37 @@ export function App() {
     );
   }
 
+  // Sin router: `#/pendientes` es la lista; cualquier otro hash, Atención.
+  const isHoldersTab = hash === "#/pendientes";
   return (
-    <div className="wrap">
-      <header className="top">
-        <h1>Consola del operador</h1>
-        <span className="muted">{user.email}</span>
+    <>
+      <header className="brand-bar">
+        <img src="/isotipo-palacio-v2.svg" alt="" />
+        <h1 className="brand-name">
+          Palacio
+          <span>Consola del operador</span>
+        </h1>
+        <nav className="tabs">
+          <a href="#/" aria-current={isHoldersTab ? undefined : "page"}>
+            Atención
+          </a>
+          <a href="#/pendientes" aria-current={isHoldersTab ? "page" : undefined}>
+            Titulares sin cuenta
+          </a>
+        </nav>
+        <span className="brand-user">{user.email}</span>
         {signOutButton}
       </header>
-      <Search onActivated={() => setHoldersVersion((v) => v + 1)} />
-      <CreateHolder onCreated={() => setHoldersVersion((v) => v + 1)} />
-      <Holders key={holdersVersion} />
-    </div>
+      <main className="wrap">
+        {/* Las vistas quedan montadas para no perder lo escrito; la lista se monta al entrar y así se vuelve a pedir. */}
+        <div className="view" hidden={isHoldersTab}>
+          <Search />
+        </div>
+        <div className="view" hidden={!isHoldersTab}>
+          <CreateHolder onCreated={() => setHoldersVersion((v) => v + 1)} />
+          {isHoldersTab && <Holders key={holdersVersion} />}
+        </div>
+      </main>
+    </>
   );
 }

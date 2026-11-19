@@ -24,7 +24,7 @@ const SEARCH_LIMIT = 20;
 const PLAN_LABELS: Record<string, string> = { family: "Familiar", comprehensive: "Integral" };
 
 /** Buscador del padrón por DNI o apellido; cada resultado abre la ficha de su grupo familiar. */
-export function Search({ onActivated }: { onActivated: () => void }) {
+export function Search() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -47,11 +47,12 @@ export function Search({ onActivated }: { onActivated: () => void }) {
 
   return (
     <section className="card">
-      <h2>Buscar en el padrón</h2>
-      <form className="search-row" role="search" onSubmit={submit}>
+      <h2>¿A quién atiende?</h2>
+      <form className="search-row search-big" role="search" onSubmit={submit}>
         <input
           aria-label="DNI o apellido"
           placeholder="DNI o apellido"
+          autoFocus
           minLength={2}
           required
           value={query}
@@ -67,7 +68,7 @@ export function Search({ onActivated }: { onActivated: () => void }) {
         </p>
       )}
       {openId ? (
-        <RecordView affiliateId={openId} onBack={() => setOpenId(null)} onActivated={onActivated} />
+        <RecordView affiliateId={openId} onBack={() => setOpenId(null)} />
       ) : (
         <>
           {hits?.length === 0 && <p className="muted">No hay asociados con ese DNI o apellido.</p>}
@@ -75,30 +76,21 @@ export function Search({ onActivated }: { onActivated: () => void }) {
             <p className="muted">Se muestran los primeros {SEARCH_LIMIT}. Si no aparece, afine la búsqueda.</p>
           )}
           {!!hits?.length && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Apellido y nombre</th>
-                  <th>DNI</th>
-                  <th>N.º de asociado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {hits.map((hit) => (
-                  <tr key={hit.id}>
-                    <td>
-                      <button className="link" onClick={() => setOpenId(hit.id)}>
-                        {hit.lastName}, {hit.firstName}
-                      </button>
-                    </td>
-                    <td className="mono">{hit.dni}</td>
-                    <td className="mono">{hit.number}</td>
-                    <td className="muted">{hit.isHolder ? "Titular" : "Del grupo familiar"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="hits">
+              {hits.map((hit) => (
+                <li key={hit.id}>
+                  <button onClick={() => setOpenId(hit.id)}>
+                    <b>
+                      {hit.lastName}, {hit.firstName}
+                    </b>
+                    <span className="muted">
+                      DNI <span className="mono">{hit.dni}</span> · N.º <span className="mono">{hit.number}</span> ·{" "}
+                      {hit.isHolder ? "Titular" : "Del grupo familiar"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </>
       )}
@@ -107,7 +99,7 @@ export function Search({ onActivated }: { onActivated: () => void }) {
 }
 
 /** Ficha: el titular, el campo de código si no tiene cuenta, y su grupo familiar con el estado de cada miembro. */
-function RecordView({ affiliateId, onBack, onActivated }: { affiliateId: string; onBack: () => void; onActivated: () => void }) {
+function RecordView({ affiliateId, onBack }: { affiliateId: string; onBack: () => void }) {
   const [record, setRecord] = useState<FamilyRecord | null>(null);
   const [hasError, setHasError] = useState(false);
   const [activatedMessage, setActivatedMessage] = useState<string | null>(null);
@@ -120,8 +112,8 @@ function RecordView({ affiliateId, onBack, onActivated }: { affiliateId: string;
   useEffect(() => void load(), [affiliateId]);
 
   const back = (
-    <button className="ghost" onClick={onBack}>
-      Volver a los resultados
+    <button className="link" onClick={onBack}>
+      ← Volver a los resultados
     </button>
   );
   if (hasError) {
@@ -173,7 +165,6 @@ function RecordView({ affiliateId, onBack, onActivated }: { affiliateId: string;
             onAttempt={() => setActivatedMessage(null)}
             onActivated={() => {
               setActivatedMessage(`Cuenta activada: ${holder.firstName} ${holder.lastName}.`);
-              onActivated();
               load();
             }}
           />

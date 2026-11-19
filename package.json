@@ -5,7 +5,8 @@
   "scripts": {
     "emulators": "npm --prefix functions run build && firebase emulators:start",
     "seed": "node scripts/seed.ts",
-    "deploy:dev": "firebase deploy --project dev --only functions,firestore:rules,firestore:indexes",
+    "console": "npm --prefix console run dev",
+    "deploy:dev": "firebase deploy --project dev --only functions,firestore:rules,firestore:indexes,hosting",
     "seed:dev": "node scripts/seed.ts --project dev",
     "grant-operator": "node scripts/operator-access.ts grant",
     "grant-operator:dev": "node scripts/operator-access.ts grant --project dev",

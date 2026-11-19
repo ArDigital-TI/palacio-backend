@@ -5,7 +5,7 @@ Auth, Firestore y Cloud Functions de la app de los asociados ([palacio-android](
 Requiere Node 22 o posterior y Java 21. La primera vez:
 
 ```powershell
-npm install; npm --prefix functions install
+npm install; npm --prefix functions install; npm --prefix console install
 ```
 
 | Comando | Qué hace |
@@ -13,12 +13,17 @@ npm install; npm --prefix functions install
 | `npm run emulators` | Compila las Functions y levanta los emuladores. Consola en http://localhost:4000. |
 | `npm run seed` | Con los emuladores levantados: borra todo y carga los datos de prueba. |
 | `npm test` | Levanta emuladores propios, corre los tests de `test/` y los apaga. |
+| `npm run console` | Con los emuladores levantados: la consola del operador en http://localhost:5173. |
 | `npm run grant-operator -- <correo>` | Con los emuladores levantados: le da el acceso de operador (`operator: true`) al usuario con ese correo, sin tocar sus otros claims. |
 | `npm run revoke-operator -- <correo>` | Le quita el acceso de operador y revoca sus tokens: deja de valer en ese momento. |
 
 Los usuarios de prueba son las personas de la demo (Marcelo, Silvia, Facundo y Rosa) y `operador@palacio.test`, todos con la contraseña `palacio-demo`. Además, `operadora.google@palacio.test` es operador y entra con Google, para la consola del operador.
 
 El usuario tiene que existir en Auth: se crea la primera vez que la persona entra a la consola con Google. Si no existe, `grant-operator` termina con error. En el emulador se puede entrar con cualquier correo simulado en el popup de Google y después darle el acceso con `grant-operator`.
+
+## La consola del operador
+
+`console/` es una página web (Vite, React y el SDK web de Firebase) donde el operador de Adhesiones entra con Google y activa a los titulares con su código. Solo entra quien tiene el acceso de operador; el resto ve «Sin acceso de operador». En el emulador, el popup de Google ofrece a `operadora.google@palacio.test`.
 
 ## La app contra el emulador
 
@@ -50,6 +55,14 @@ La variante `dev` entra con una cuenta real de Google contra un proyecto real de
    palacio.dev.apiKey=<client[0].api_key[0].current_key>
    palacio.dev.webClientId=<el ID de cliente web del paso 3>
    ```
+6. Para la consola del operador, registrar una app web y copiar su configuración a `console/.env.dev` (no se sube al repo; el formato está en `console/.env.example`):
+
+   ```powershell
+   npx firebase apps:create web consola --project dev
+   npx firebase apps:sdkconfig web --project dev
+   ```
+
+   En **Authentication → Settings → Authorized domains** tienen que figurar `<proyecto>.web.app` y `<proyecto>.firebaseapp.com`, los dominios de Hosting. Vienen así por defecto.
 
 ### Desplegar y cargar los datos de prueba
 
@@ -58,8 +71,10 @@ Desde la raíz de este repo:
 ```powershell
 npx firebase login
 npx firebase use --add      # elegir el proyecto y ponerle el alias dev
-npm run deploy:dev          # Functions, reglas e índices
+npm run deploy:dev          # Functions, reglas, índices y la consola (Hosting)
 ```
+
+La consola queda en `https://<proyecto>.web.app`. El build falla si falta `console/.env.dev`.
 
 La primera vez, `deploy:dev` habilita las APIs que faltan (Cloud Functions, Cloud Build, Artifact Registry) y puede tardar varios minutos.
 

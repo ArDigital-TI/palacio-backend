@@ -22,5 +22,5 @@ Spec: [spec.md](../spec.md)
 
 - Los dos comandos están en un solo script, `scripts/operator-access.ts grant|revoke <correo> [--project dev]`.
 - `importUsers` con `providerData` de `google.com` funciona en el emulador de Auth: después de `npm run seed`, `accounts:lookup` devuelve a `operadora.google@palacio.test` (uid `operator-google`) con `providerUserInfo` de `google.com` y el claim `operator: true`.
-- Pendiente, a mano: confirmar que el popup de Google del emulador ofrece ese usuario al entrar a la consola. Si no lo ofrece, el README ya explica la alternativa: entrar con cualquier correo simulado y darle el acceso con `grant-operator`.
+- Confirmado con el ticket 04: el popup de Google del emulador ofrece «Operadora Google, operadora.google@palacio.test», y entrar con esa identidad da el uid `operator-google`.
 - El emulador de Auth deja actualizar el token después de `revokeRefreshTokens` (producción no); el test verifica que el token nuevo ya no trae `operator` y que `activateHolder` responde `permission-denied`.

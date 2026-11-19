@@ -1,4 +1,7 @@
 node_modules/
 functions/lib/
+console/dist/
+console/.env.dev
+.claude/worktrees/
 *-debug.log
 .scratch/handoffs/

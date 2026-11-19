@@ -17,4 +17,4 @@ Spec: [spec.md](../spec.md)
 ## Comments
 
 - 2026-11-19: hecho. `normalizedEmail` (Functions) es la única normalización del correo: la usan `activateHolder`, `affiliateRecord` y `createHolder`. Recorrido en el emulador: Rosa (17.844.390) con el código de la cuenta pendiente de Silvia muestra el aviso de correo y, a la izquierda, «Correo del padrón: rosa.quispe@correo.com»; a 375 px y en oscuro, sin desborde. Suite completa contra el emulador: 53 de 53.
-- 2026-11-19: desplegado en `dev` con `npm run deploy:dev` (los tickets 01, 02 y 03: la consola nueva y `affiliateRecord` con el correo). Hosting sirve el build nuevo en https://palacio-mobile-a61b7.web.app. Falta que el usuario lo recorra con su cuenta de operador; no hizo falta `seed:dev`.
+- 2026-11-19: desplegado en `dev` con `npm run deploy:dev` (los tickets 01, 02 y 03: la consola nueva y `affiliateRecord` con el correo). Hosting sirve el build nuevo en https://palacio-mobile-a61b7.web.app. No hizo falta `seed:dev`. El usuario lo probó con su cuenta de operador: funciona.

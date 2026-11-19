@@ -23,4 +23,4 @@ Spec: [spec.md](../spec.md)
 - Para encontrar estas altas cuando llegue el padrón real: `affiliates` con `createdBy` (o número `FP-PRUEBA-…`).
 - La fecha se valida de verdad: «1980-13-01» y «1980-02-31» dan `invalid-argument` (el primero daba 500 antes del test).
 - En la consola, el DNI acepta puntos al tipear y los quita; sin `maxLength`, que cortaba «40.111.222» a 6 dígitos.
-- 2026-11-19: recorrido en el emulador: alta de «Ernesto Ñúñez», DNI «40.111.222» → aparece en la lista y «nunez» lo encuentra con `FP-PRUEBA-40111222`; el DNI de Rosa da «Ese DNI ya está en el padrón.». Falta desplegarlo en `dev`.
+- 2026-11-19: recorrido en el emulador: alta de «Ernesto Ñúñez», DNI «40.111.222» → aparece en la lista y «nunez» lo encuentra con `FP-PRUEBA-40111222`; el DNI de Rosa da «Ese DNI ya está en el padrón.». Desplegado y probado en `dev` con el ticket 07.

@@ -22,3 +22,4 @@ Spec: [spec.md](../spec.md)
 - En `dev`, los titulares de la semilla tienen correos inventados y ya no se pueden activar con cuentas reales: se prueba con titulares dados de alta desde la consola (ticket 06) con el correo real.
 - Los tests de `activateHolder` que ya existían ahora cargan el asociado con el correo de la cuenta pendiente.
 - 2026-11-19: recorrido en el emulador: con el código de una cuenta pendiente de Silvia (`silvi.medina81@gmail.com`), activar a Rosa da «El correo de la cuenta del titular no coincide con el del padrón…»; con el código de la cuenta de Rosa (`rosa.quispe@correo.com`), «Cuenta activada: Rosa Quispe.».
+- 2026-11-19: desplegado en `dev` junto con el ticket 06. El usuario dio de alta un titular con su correo real desde https://palacio-mobile-a61b7.web.app, lo activó con el código y funcionó correctamente.

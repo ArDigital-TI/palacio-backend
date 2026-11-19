@@ -32,3 +32,4 @@ Spec: [spec.md](../spec.md)
 - La normalización del apellido está en `searchKey` (Functions) y copiada en `scripts/seed.ts`; la carga del padrón de la Fundación tiene que escribir la misma clave.
 - Activar desde la lista no actualiza una ficha abierta (se ve al volver a abrirla); activar desde la ficha sí vuelve a pedir la lista.
 - 2026-11-19: recorrido en el emulador: «araoz» encuentra a la familia Aráoz; Valentina abre la ficha de Marcelo, resaltada y «A cargo»; Rosa por «17.844.390», código equivocado da «Código inválido…», el correcto deja «Cuenta activa» y la saca de la lista.
+- 2026-11-19: desplegado en `dev` con `npm run deploy:dev` (crea `searchAffiliates` y `affiliateRecord`) y `npm run seed:dev` (escribe `lastNameKey` en los asociados de prueba). El usuario probó la búsqueda y la ficha en https://palacio-mobile-a61b7.web.app con su cuenta de operador: funciona.

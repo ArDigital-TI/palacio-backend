@@ -1,5 +1,6 @@
 import { httpsCallable } from "firebase/functions";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { functions } from "./firebase.ts";
 
 export type Holder = { id: string; firstName: string; lastName: string; dni: string };
@@ -100,18 +101,29 @@ function HolderRow({ holder, onActivated, onAttempt }: { holder: Holder; onActiv
   );
 }
 
-/** Campo del código de activación y botón Activar de un titular, con el error de dominio debajo. */
-export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Holder; onActivated: () => void; onAttempt: () => void }) {
+/** Campo del código de activación y botón Activar de un titular. Un error se muestra como aviso con «Entendido». */
+export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Holder; onActivated: () => void; onAttempt?: () => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const name = `${holder.firstName} ${holder.lastName}`;
   // La misma persona puede estar en la lista y en una ficha abierta: el id tiene que ser único por formulario.
   const errorId = useId();
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  // Cierra el aviso y deja el campo vacío y con el cursor, para que el titular vuelva a dictar el código.
+  const dismissError = () => {
+    // El campo está deshabilitado mientras hay aviso: hay que habilitarlo antes de darle el foco.
+    flushSync(() => {
+      setError(null);
+      setCode("");
+    });
+    codeRef.current?.focus();
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    onAttempt();
+    onAttempt?.();
     setIsBusy(true);
     setError(null);
     try {
@@ -130,6 +142,7 @@ export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Hol
     <>
       <form className="activate-row" onSubmit={submit}>
         <input
+          ref={codeRef}
           aria-label={`Código de ${name}`}
           aria-describedby={error ? errorId : undefined}
           inputMode="numeric"
@@ -137,17 +150,25 @@ export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Hol
           maxLength={4}
           pattern="\d{4}"
           required
+          disabled={!!error}
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
         />
-        <button className="btn" disabled={isBusy} aria-label={`Activar a ${name}`}>
+        <button className="btn" disabled={isBusy || !!error} aria-label={`Activar a ${name}`}>
           Activar
         </button>
       </form>
       {error && (
-        <p id={errorId} className="msg-error" role="alert">
-          {error}
-        </p>
+        <div className="notice notice-error" role="alert">
+          <span className="notice-icon" aria-hidden="true">
+            !
+          </span>
+          <p id={errorId}>{error}</p>
+          {/* El foco va al botón al aparecer, así Enter lo cierra. */}
+          <button className="btn btn-danger" onClick={dismissError} autoFocus>
+            Entendido
+          </button>
+        </div>
       )}
     </>
   );

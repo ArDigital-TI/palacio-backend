@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { functions } from "./firebase.ts";
 import { ActivationForm, UNEXPECTED_MESSAGE } from "./Holders.tsx";
 
@@ -30,6 +30,16 @@ export function Search() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // «Atender a otro»: el buscador vacío y con el cursor, sin ficha ni resultados.
+  const attendAnother = () => {
+    setOpenId(null);
+    setHits(null);
+    setQuery("");
+    setHasError(false);
+    searchRef.current?.focus();
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -50,6 +60,7 @@ export function Search() {
       <h2>¿A quién atiende?</h2>
       <form className="search-row search-big" role="search" onSubmit={submit}>
         <input
+          ref={searchRef}
           aria-label="DNI o apellido"
           placeholder="DNI o apellido"
           autoFocus
@@ -68,7 +79,7 @@ export function Search() {
         </p>
       )}
       {openId ? (
-        <RecordView affiliateId={openId} onBack={() => setOpenId(null)} />
+        <RecordView affiliateId={openId} onBack={() => setOpenId(null)} onAttendAnother={attendAnother} />
       ) : (
         <>
           {hits?.length === 0 && <p className="muted">No hay asociados con ese DNI o apellido.</p>}
@@ -98,11 +109,11 @@ export function Search() {
   );
 }
 
-/** Ficha: el titular, el campo de código si no tiene cuenta, y su grupo familiar con el estado de cada miembro. */
-function RecordView({ affiliateId, onBack }: { affiliateId: string; onBack: () => void }) {
+/** Ficha: a la izquierda el titular y su grupo familiar con el estado de cada miembro; a la derecha, la activación. */
+function RecordView({ affiliateId, onBack, onAttendAnother }: { affiliateId: string; onBack: () => void; onAttendAnother: () => void }) {
   const [record, setRecord] = useState<FamilyRecord | null>(null);
   const [hasError, setHasError] = useState(false);
-  const [activatedMessage, setActivatedMessage] = useState<string | null>(null);
+  const [activatedName, setActivatedName] = useState<string | null>(null);
 
   const load = () =>
     affiliateRecord({ affiliateId })
@@ -137,7 +148,7 @@ function RecordView({ affiliateId, onBack }: { affiliateId: string; onBack: () =
       <td className="mono">{p.dni}</td>
       <td>{p.age}</td>
       <td>
-        <span className={`pill pill-${p.status}`}>{STATUS_LABELS[p.status]}</span>
+        <StatusPill person={p} />
       </td>
     </tr>
   );
@@ -145,42 +156,64 @@ function RecordView({ affiliateId, onBack }: { affiliateId: string; onBack: () =
   return (
     <div className="record">
       {back}
-      <h3>
-        {holder.lastName}, {holder.firstName}
-      </h3>
-      <p className="muted">
-        Titular · DNI <span className="mono">{holder.dni}</span> · N.º <span className="mono">{holder.number}</span> ·{" "}
-        {PLAN_LABELS[holder.plan] ?? holder.plan}
-      </p>
-      {activatedMessage && (
-        <p className="msg-ok" role="status">
-          {activatedMessage}
-        </p>
-      )}
-      {holder.status === "no_account" && (
-        <div>
-          <p className="muted">Ingrese el código de 4 dígitos que muestra la app del titular.</p>
-          <ActivationForm
-            holder={holder}
-            onAttempt={() => setActivatedMessage(null)}
-            onActivated={() => {
-              setActivatedMessage(`Cuenta activada: ${holder.firstName} ${holder.lastName}.`);
-              load();
-            }}
-          />
+      <div className="record-cols">
+        <div className="record-family">
+          <h3>
+            {holder.lastName}, {holder.firstName}
+          </h3>
+          <p className="muted">
+            Titular · DNI <span className="mono">{holder.dni}</span> · N.º <span className="mono">{holder.number}</span> ·{" "}
+            {PLAN_LABELS[holder.plan] ?? holder.plan}
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo familiar</th>
+                <th>DNI</th>
+                <th>Edad</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>{[holder, ...members].map(row)}</tbody>
+          </table>
         </div>
-      )}
-      <table>
-        <thead>
-          <tr>
-            <th>Grupo familiar</th>
-            <th>DNI</th>
-            <th>Edad</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>{[holder, ...members].map(row)}</tbody>
-      </table>
+        <aside className="activation-panel" aria-label="Activación">
+          <h3>Activación</h3>
+          {activatedName ? (
+            <div className="notice notice-ok" role="status">
+              <span className="notice-icon" aria-hidden="true">
+                ✓
+              </span>
+              <div>
+                <p className="notice-title">Cuenta activada</p>
+                <p>{activatedName} ya puede usar la app.</p>
+              </div>
+              <button className="btn" onClick={onAttendAnother} autoFocus>
+                Atender a otro
+              </button>
+            </div>
+          ) : holder.status === "no_account" ? (
+            <>
+              <p className="muted">Pídale el código de 4 dígitos que muestra su app.</p>
+              <ActivationForm
+                holder={holder}
+                onActivated={() => {
+                  setActivatedName(`${holder.firstName} ${holder.lastName}`);
+                  load();
+                }}
+              />
+            </>
+          ) : (
+            <p className="muted">
+              El titular ya tiene cuenta: <StatusPill person={holder} />
+            </p>
+          )}
+        </aside>
+      </div>
     </div>
   );
+}
+
+function StatusPill({ person }: { person: Person }) {
+  return <span className={`pill pill-${person.status}`}>{STATUS_LABELS[person.status]}</span>;
 }

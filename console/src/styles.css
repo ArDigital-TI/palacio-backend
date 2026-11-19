@@ -51,6 +51,9 @@ table { border-collapse: collapse; width: 100% }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top }
 th { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600 }
 .activate-row { display: flex; gap: 8px }
+.activate-row input:disabled { opacity: .5 }
+/* Deshabilitado por un aviso abierto, no porque esté cargando. */
+.activate-row input:disabled + .btn { cursor: not-allowed }
 .activate-row input { font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .25em; box-sizing: content-box; width: calc(4ch + 1em) }
 .msg-ok { color: var(--accent); font-weight: 700 }
 .msg-error { color: var(--danger); font-size: .9rem; margin-top: 6px }
@@ -90,3 +93,24 @@ select { font: inherit; color: var(--fg); background: var(--surface); border: 1p
 .hits { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
 .hits button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: inherit }
 .hits button:hover { border-color: var(--accent); background: var(--accent-soft) }
+
+/* Ficha en dos columnas: el grupo familiar y el panel de activación; en pantallas angostas, una sola. */
+.record-cols { justify-self: stretch; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start }
+.record-family { display: grid; gap: 10px; justify-items: start }
+.record-family table { justify-self: stretch }
+.activation-panel { background: var(--surface-2); border-radius: 14px; padding: 16px; display: grid; gap: 12px }
+.activation-panel h3 { margin: 0 }
+.activation-panel .activate-row input { font-size: 2rem; padding: 10px 16px }
+.activation-panel .activate-row .btn { padding: 14px 24px; font-size: 1.05rem }
+@media (max-width: 800px) { .record-cols { grid-template-columns: minmax(0, 1fr) } }
+
+/* Avisos de la activación: el error con «Entendido» y el éxito con «Atender a otro». */
+.notice { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 14px; border: 1px solid; margin-top: 8px }
+.notice > p, .notice > div { flex: 1 1 12em }
+.notice-error { background: var(--danger-soft); border-color: var(--danger) }
+.notice-ok { background: var(--accent-soft); border-color: var(--accent) }
+.notice-title { font-weight: 700; color: var(--accent); font-size: 1.05rem }
+.notice-icon { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: var(--surface) }
+.notice-error .notice-icon { background: var(--danger) }
+.notice-ok .notice-icon { background: var(--accent) }
+.btn-danger { background: var(--danger); color: var(--surface) }

@@ -48,7 +48,7 @@ table { border-collapse: collapse; width: 100% }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top }
 th { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600 }
 .activate-row { display: flex; gap: 8px }
-.activate-row input { font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .25em; width: 7ch }
+.activate-row input { font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .25em; box-sizing: content-box; width: calc(4ch + 1em) }
 .msg-ok { color: var(--accent); font-weight: 700 }
 .msg-error { color: var(--danger); font-size: .9rem; margin-top: 6px }
 

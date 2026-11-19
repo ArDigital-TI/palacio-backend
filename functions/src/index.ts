@@ -146,8 +146,8 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
     const account = pending.docs[0];
     // Seguridad: la cuenta de Google con que entró el titular tiene que ser la del correo que el padrón tiene para él.
     // Un titular sin correo en el padrón no se activa.
-    const email = (v: unknown) => text(v).trim().toLowerCase();
-    if (!email(affiliate.get("email")) || email(affiliate.get("email")) !== email(account.get("email"))) return EMAIL_MISMATCH;
+    const padronEmail = normalizedEmail(affiliate.get("email"));
+    if (!padronEmail || padronEmail !== normalizedEmail(account.get("email"))) return EMAIL_MISMATCH;
 
     // Quién activó y cuándo, para poder responder un reclamo.
     tx.update(account.ref, { affiliateId, status: "active", activatedBy: request.auth!.uid, activatedAt: Date.now() });
@@ -197,7 +197,8 @@ export const searchAffiliates = onCall<{ query?: unknown }>(async (request) => {
 
 /**
  * Ficha para el operador: el titular del asociado (o él mismo, si es titular) y su grupo familiar, del mayor al menor.
- * Cada uno con su estado, con el mismo criterio que `memberStatus` de la app. Solo los datos mínimos del padrón.
+ * Cada uno con su estado, con el mismo criterio que `memberStatus` de la app. Solo los datos mínimos del padrón, más el correo del titular
+ * (ADR 0003).
  */
 export const affiliateRecord = onCall<{ affiliateId?: unknown }>(async (request) => {
   requireOperator(request);
@@ -226,7 +227,8 @@ export const affiliateRecord = onCall<{ affiliateId?: unknown }>(async (request)
     };
   };
   return {
-    holder: { ...person(holder), number: holder.get("number"), plan: holder.get("plan") },
+    // El correo del padrón, para que el operador se lo lea al titular si no coincide (ADR 0003). Solo el del titular.
+    holder: { ...person(holder), number: holder.get("number"), plan: holder.get("plan"), email: normalizedEmail(holder.get("email")) },
     members: members.docs.map(person).sort((a, b) => b.age - a.age),
   };
 });
@@ -245,7 +247,7 @@ export const createHolder = onCall<Record<string, unknown>>(async (request) => {
   const birthDate = text(d.birthDate);
   const plan = text(d.plan);
   // El correo es el de la cuenta de Google del titular: `activateHolder` lo compara con el de su cuenta.
-  const email = text(d.email).trim().toLowerCase();
+  const email = normalizedEmail(d.email);
   const phone = text(d.phone).trim();
   // La fecha tiene que existir: `Date.parse` da NaN con el mes 13 y corre 1980-02-31 a marzo, que la comparación detecta.
   const time = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? Date.parse(birthDate) : NaN;
@@ -336,6 +338,8 @@ async function assertManages(request: CallableRequest, affiliateId: string) {
 
 const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const text = (v: unknown) => (typeof v === "string" ? v : "");
+/** Un correo como lo compara `activateHolder`: sin espacios alrededor y en minúsculas. */
+const normalizedEmail = (v: unknown) => text(v).trim().toLowerCase();
 
 /** Horarios de un recurso, sede y día: solo la hora y si está libre, sin datos de los turnos ajenos. */
 export const availableSlots = onCall<{ kind?: unknown; resourceId?: unknown; siteId?: unknown; date?: unknown }>(async (request) => {

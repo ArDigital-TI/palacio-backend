@@ -98,6 +98,7 @@ select { font: inherit; color: var(--fg); background: var(--surface); border: 1p
 .record-cols { justify-self: stretch; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start }
 .record-family { display: grid; gap: 10px; justify-items: start }
 .record-family table { justify-self: stretch }
+.padron-email { font-weight: 600; color: var(--fg); overflow-wrap: anywhere }
 .activation-panel { background: var(--surface-2); border-radius: 14px; padding: 16px; display: grid; gap: 12px }
 .activation-panel h3 { margin: 0 }
 .activation-panel .activate-row input { font-size: 2rem; padding: 10px 16px }

@@ -10,7 +10,7 @@ const letters = () => Array.from({ length: 8 }, () => "abcdefghijklmnopqrstuvwxy
 const dni = () => String(randomInt(10_000_000, 100_000_000));
 
 /** Un asociado nuevo. `lastNameKey` lo escribe quien carga el padrón: el apellido en minúsculas y sin acentos. */
-async function affiliate(fields: { lastName: string; lastNameKey: string; dni?: string; holderId?: string | null; age?: number }) {
+async function affiliate(fields: { lastName: string; lastNameKey: string; dni?: string; holderId?: string | null; age?: number; email?: string }) {
   const id = `s-${letters()}`;
   const { age = 40, ...rest } = fields;
   await adminDb.doc(`affiliates/${id}`).set({
@@ -56,11 +56,12 @@ test("searchAffiliates encuentra por el principio del apellido, sin mayúsculas 
 const record = async (op: Awaited<ReturnType<typeof operator>>, affiliateId: string) =>
   (await op.call("affiliateRecord", { affiliateId })).data;
 
-test("affiliateRecord devuelve al titular y su grupo familiar, cada uno con su estado", async () => {
+// El correo es solo el del titular, normalizado como lo compara `activateHolder` (ADR 0003); el de los miembros no sale.
+test("affiliateRecord devuelve al titular con su correo y su grupo familiar, cada uno con su estado", async () => {
   const op = await operator();
   const tag = letters();
   const name = { lastName: `Ríos${tag}`, lastNameKey: `rios${tag}` };
-  const holder = await affiliate(name);
+  const holder = await affiliate({ ...name, email: " Rios.Titular@Correo.com " });
   const active = await affiliate({ ...name, holderId: holder, age: 30 });
   const awaiting = await affiliate({ ...name, holderId: holder, age: 25 });
   const noAccount = await affiliate({ ...name, holderId: holder, age: 19 });
@@ -75,7 +76,7 @@ test("affiliateRecord devuelve al titular y su grupo familiar, cada uno con su e
     ({ id, firstName: "Prueba", lastName: `Ríos${tag}`, dni: dnis[id], age, status });
 
   const expected = {
-    holder: { ...member(holder, 40, "no_account"), number: `FP-${holder}`, plan: "family" },
+    holder: { ...member(holder, 40, "no_account"), number: `FP-${holder}`, plan: "family", email: "rios.titular@correo.com" },
     members: [member(active, 30, "active"), member(awaiting, 25, "awaiting_acceptance"), member(noAccount, 19, "no_account"), member(dependent, 10, "dependent")],
   };
   assert.deepEqual(await record(op, holder), expected);
@@ -83,6 +84,13 @@ test("affiliateRecord devuelve al titular y su grupo familiar, cada uno con su e
 
   await account(holder, "active");
   assert.equal(((await record(op, active)) as typeof expected).holder.status, "active");
+});
+
+test("affiliateRecord de un titular sin correo en el padrón devuelve el correo vacío", async () => {
+  const op = await operator();
+  const tag = letters();
+  const holder = await affiliate({ lastName: `Sosa${tag}`, lastNameKey: `sosa${tag}`, email: "" });
+  assert.equal(((await record(op, holder)) as { holder: { email: string } }).holder.email, "");
 });
 
 test("affiliateRecord de un asociado que no existe da not-found", async () => {

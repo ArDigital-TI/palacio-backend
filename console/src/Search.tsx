@@ -7,7 +7,7 @@ import { ActivationForm, UNEXPECTED_MESSAGE } from "./Holders.tsx";
 type Hit = { id: string; firstName: string; lastName: string; dni: string; number: string; isHolder: boolean };
 type Status = "dependent" | "active" | "awaiting_acceptance" | "no_account";
 type Person = { id: string; firstName: string; lastName: string; dni: string; age: number; status: Status };
-type FamilyRecord = { holder: Person & { number: string; plan: string }; members: Person[] };
+type FamilyRecord = { holder: Person & { number: string; plan: string; email: string }; members: Person[] };
 
 const searchAffiliates = httpsCallable<{ query: string }, Hit[]>(functions, "searchAffiliates");
 const affiliateRecord = httpsCallable<{ affiliateId: string }, FamilyRecord>(functions, "affiliateRecord");
@@ -164,6 +164,15 @@ function RecordView({ affiliateId, onBack, onAttendAnother }: { affiliateId: str
           <p className="muted">
             Titular · DNI <span className="mono">{holder.dni}</span> · N.º <span className="mono">{holder.number}</span> ·{" "}
             {PLAN_LABELS[holder.plan] ?? holder.plan}
+            <br />
+            {/* Para leérselo al titular cuando la activación dice que el correo no coincide (ADR 0003). */}
+            {holder.email ? (
+              <>
+                Correo del padrón: <span className="mono padron-email">{holder.email}</span>
+              </>
+            ) : (
+              "Sin correo en el padrón"
+            )}
           </p>
           <table>
             <thead>

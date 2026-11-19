@@ -27,6 +27,10 @@ _Avoid_: admin, back-office
 Herramienta web interna con la que el operador busca asociados en el padrón, ve su ficha y activa las cuentas de los titulares. Es aparte de la app de los asociados.
 _Avoid_: back-office, panel de admin
 
+**Atención**:
+Vista principal de la consola del operador, la del mostrador: busca al titular que tiene adelante, abre su ficha y lo activa con el código que le dicta. La otra vista, «Titulares sin cuenta», lista a los que faltan activar.
+_Avoid_: inicio, dashboard
+
 **Ficha**:
 Vista de la consola del operador con un titular y su grupo familiar, cada miembro con su estado (a cargo, sin cuenta, pendiente de aceptación, cuenta activa).
 

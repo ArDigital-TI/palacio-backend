@@ -3,5 +3,6 @@ functions/lib/
 console/dist/
 console/.env.dev
 .claude/worktrees/
+.firebase/
 *-debug.log
 .scratch/handoffs/

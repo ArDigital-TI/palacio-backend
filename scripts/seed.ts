@@ -178,5 +178,13 @@ if (REAL_PROJECT) {
     const user = await auth.createUser({ uid, email, password: EMULATOR_PASSWORD, emailVerified: true });
     if (claims) await auth.setCustomUserClaims(user.uid, claims);
   }
-  console.log(`Datos de prueba cargados: ${Object.keys(affiliates).length} asociados, ${Object.keys(accounts).length} cuentas, ${users.length} usuarios.`);
+  // El operador de la consola, que entra con Google (sin contraseña): `importUsers` es lo único que crea un usuario
+  // con proveedor `google.com` desde el Admin SDK.
+  const google = "operadora.google@palacio.test";
+  const { errors } = await auth.importUsers([{
+    uid: "operator-google", email: google, emailVerified: true, displayName: "Operadora Google", customClaims: { operator: true },
+    providerData: [{ uid: google, email: google, displayName: "Operadora Google", providerId: "google.com" }],
+  }]);
+  if (errors.length) throw errors[0].error;
+  console.log(`Datos de prueba cargados: ${Object.keys(affiliates).length} asociados, ${Object.keys(accounts).length} cuentas, ${users.length + 1} usuarios.`);
 }

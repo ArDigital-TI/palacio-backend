@@ -1,10 +1,12 @@
 // El operador activa a un titular: `holdersWithoutAccount` y `activateHolder`, con sus errores de dominio.
-// Casos portados de `AccountRulesTest` y `FakeRepositoriesTest`.
+// Casos portados de `AccountRulesTest` y `FakeRepositoriesTest`. Al final, dar y quitar el acceso de operador por script.
 
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
-import { adminDb, newUser, yearsAgo } from "./helpers.ts";
+import { promisify } from "node:util";
+import { adminAuth, adminDb, newUser, yearsAgo } from "./helpers.ts";
 
 /** Un asociado nuevo, con id propio para no chocar con otros tests. */
 async function affiliate(fields: { holderId?: string | null; birthDate?: string } = {}) {
@@ -105,4 +107,27 @@ test("dos activaciones simultáneas con el mismo código: gana una y los claims 
   const linked = (await user.account())?.affiliateId;
   assert.ok(linked === holderA || linked === holderB);
   assert.equal((await user.tokenClaims()).affiliateId, linked);
+});
+
+/** Corre `scripts/operator-access.ts` contra el emulador (`emulators:exec` define FIREBASE_AUTH_EMULATOR_HOST). */
+const operatorAccess = (command: "grant" | "revoke", email: string) =>
+  promisify(execFile)(process.execPath, ["scripts/operator-access.ts", command, email]);
+
+test("grant-operator da el acceso conservando los otros claims; revoke-operator lo quita en el momento", async () => {
+  const user = await newUser({ role: "holder" });
+
+  await operatorAccess("grant", user.email);
+  assert.deepEqual((await adminAuth.getUser(user.uid)).customClaims, { role: "holder", operator: true });
+  await user.tokenClaims();
+  await user.call("holdersWithoutAccount");
+
+  await operatorAccess("revoke", user.email);
+  assert.deepEqual((await adminAuth.getUser(user.uid)).customClaims, { role: "holder" });
+  // El emulador deja actualizar el token aunque esté revocado (producción no); el token nuevo ya no trae `operator`.
+  assert.equal((await user.tokenClaims()).operator, undefined);
+  await assert.rejects(user.call("activateHolder", { affiliateId: "x", code: "1" }), { code: "functions/permission-denied" });
+});
+
+test("grant-operator con un correo que no está en Auth termina con error", async () => {
+  await assert.rejects(operatorAccess("grant", `${randomUUID()}@test.palacio`), /tiene que entrar una vez a la consola/);
 });

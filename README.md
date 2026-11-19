@@ -13,8 +13,12 @@ npm install; npm --prefix functions install
 | `npm run emulators` | Compila las Functions y levanta los emuladores. Consola en http://localhost:4000. |
 | `npm run seed` | Con los emuladores levantados: borra todo y carga los datos de prueba. |
 | `npm test` | Levanta emuladores propios, corre los tests de `test/` y los apaga. |
+| `npm run grant-operator -- <correo>` | Con los emuladores levantados: le da el acceso de operador (`operator: true`) al usuario con ese correo, sin tocar sus otros claims. |
+| `npm run revoke-operator -- <correo>` | Le quita el acceso de operador y revoca sus tokens: deja de valer en ese momento. |
 
-Los usuarios de prueba son las personas de la demo (Marcelo, Silvia, Facundo y Rosa) y `operador@palacio.test`, todos con la contraseña `palacio-demo`.
+Los usuarios de prueba son las personas de la demo (Marcelo, Silvia, Facundo y Rosa) y `operador@palacio.test`, todos con la contraseña `palacio-demo`. Además, `operadora.google@palacio.test` es operador y entra con Google, para la consola del operador.
+
+El usuario tiene que existir en Auth: se crea la primera vez que la persona entra a la consola con Google. Si no existe, `grant-operator` termina con error. En el emulador se puede entrar con cualquier correo simulado en el popup de Google y después darle el acceso con `grant-operator`.
 
 ## La app contra el emulador
 
@@ -62,6 +66,8 @@ La primera vez, `deploy:dev` habilita las APIs que faltan (Cloud Functions, Clou
 `npm run seed:dev` carga los asociados, el catálogo, la configuración y los turnos de prueba. No carga cuentas ni usuarios: las cuentas se crean al entrar con Google. Antes hace falta tener credenciales de Google Cloud, de una de estas dos formas:
 - con `gcloud auth application-default login`;
 - con una clave de cuenta de servicio, poniendo su ruta en `GOOGLE_APPLICATION_CREDENTIALS`.
+
+Con esas mismas credenciales, `npm run grant-operator:dev -- <correo>` y `npm run revoke-operator:dev -- <correo>` dan y quitan el acceso de operador en `dev`. La persona tiene que haber entrado antes una vez a la consola con su cuenta de Google.
 
 ### La app
 

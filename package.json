@@ -7,6 +7,10 @@
     "seed": "node scripts/seed.ts",
     "deploy:dev": "firebase deploy --project dev --only functions,firestore:rules,firestore:indexes",
     "seed:dev": "node scripts/seed.ts --project dev",
+    "grant-operator": "node scripts/operator-access.ts grant",
+    "grant-operator:dev": "node scripts/operator-access.ts grant --project dev",
+    "revoke-operator": "node scripts/operator-access.ts revoke",
+    "revoke-operator:dev": "node scripts/operator-access.ts revoke --project dev",
     "test": "npm --prefix functions run build && firebase emulators:exec --only auth,firestore,functions \"node --test test/*.test.ts\""
   },
   "devDependencies": {

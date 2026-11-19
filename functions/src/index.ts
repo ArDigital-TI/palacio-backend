@@ -3,7 +3,7 @@
 
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, type Query, type QuerySnapshot, type Transaction } from "firebase-admin/firestore";
+import { getFirestore, type DocumentSnapshot, type Query, type QuerySnapshot, type Transaction } from "firebase-admin/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { randomInt } from "node:crypto";
@@ -44,6 +44,11 @@ function age(birthDate: string, today = new Date()): number {
   const [year, month, day] = birthDate.split("-").map(Number);
   const beforeBirthday = today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day);
   return today.getFullYear() - year - (beforeBirthday ? 1 : 0);
+}
+
+/** Miembro a cargo: tiene titular y es menor de 18. Igual que `isDependent` de la app. */
+function isDependent(affiliate: DocumentSnapshot): boolean {
+  return affiliate.get("holderId") != null && age(affiliate.get("birthDate")) < 18;
 }
 
 function freshLinkToken() {
@@ -122,7 +127,7 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
     const affiliate = await tx.get(db.doc(`affiliates/${affiliateId}`));
     if (!affiliate.exists) return fail("INVALID_CODE");
     const holderId = affiliate.get("holderId");
-    if (holderId != null && age(affiliate.get("birthDate")) < 18) return fail("IS_DEPENDENT");
+    if (isDependent(affiliate)) return fail("IS_DEPENDENT");
     if (holderId != null) return fail("IS_ADHERENT");
     const active = await tx.get(accounts.where("affiliateId", "==", affiliateId).where("status", "==", "active").limit(1));
     if (!active.empty) return fail("ALREADY_ACTIVE");
@@ -143,6 +148,75 @@ export const activateHolder = onCall<{ affiliateId?: unknown; code?: unknown }>(
   // ponytail: si este paso falla, la cuenta queda activa sin claims; reintentar devuelve ALREADY_ACTIVE.
   await getAuth().setCustomUserClaims(activated.uid!, { affiliateId, holderId: affiliateId, role: "holder" });
   return ok;
+});
+
+// --- Padrón, para la consola del operador ---
+
+// ponytail: tope fijo; la consola avisa que hay que afinar la búsqueda cuando lo alcanza. Paginar si hace falta.
+const SEARCH_LIMIT = 20;
+
+/** Clave de búsqueda del apellido: minúsculas y sin acentos. La misma que escribe `scripts/seed.ts` en `lastNameKey`. */
+const searchKey = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+/**
+ * Busca en el padrón por DNI exacto (se ignoran puntos y espacios) o por el principio del apellido, sin mayúsculas
+ * ni acentos (`lastNameKey`). Con menos de dos letras no busca. Solo el operador.
+ */
+export const searchAffiliates = onCall<{ query?: unknown }>(async (request) => {
+  requireOperator(request);
+  const query = String(request.data?.query ?? "").trim();
+  const digits = query.replace(/[.\s]/g, "");
+  const affiliates = db.collection("affiliates");
+  let found: QuerySnapshot;
+  if (/^\d+$/.test(digits)) {
+    found = await affiliates.where("dni", "==", digits).limit(SEARCH_LIMIT).get();
+  } else {
+    const key = searchKey(query);
+    if (key.length < 2) return [];
+    // Todas las claves que empiezan con `key`: U+F8FF ordena después de cualquier letra.
+    found = await affiliates.where("lastNameKey", ">=", key).where("lastNameKey", "<", key + "\uf8ff")
+      .orderBy("lastNameKey").limit(SEARCH_LIMIT).get();
+  }
+  return found.docs.map((d) => ({
+    id: d.id, firstName: d.get("firstName"), lastName: d.get("lastName"), dni: d.get("dni"), number: d.get("number"),
+    isHolder: d.get("holderId") == null,
+  }));
+});
+
+/**
+ * Ficha para el operador: el titular del asociado (o él mismo, si es titular) y su grupo familiar, del mayor al menor.
+ * Cada uno con su estado, con el mismo criterio que `memberStatus` de la app. Solo los datos mínimos del padrón.
+ */
+export const affiliateRecord = onCall<{ affiliateId?: unknown }>(async (request) => {
+  requireOperator(request);
+  const affiliates = db.collection("affiliates");
+  // `doc("")` lanza: un id vacío se busca como uno que no existe.
+  const found = await affiliates.doc(String(request.data?.affiliateId ?? "") || "-").get();
+  if (!found.exists) throw new HttpsError("not-found", "No está en el padrón.");
+  const holderId: string = found.get("holderId") ?? found.id;
+  const [holder, members] = await Promise.all([
+    holderId === found.id ? found : affiliates.doc(holderId).get(),
+    affiliates.where("holderId", "==", holderId).get(),
+  ]);
+  const ids = [holder.id, ...members.docs.map((d) => d.id)];
+  // ponytail: `in` admite hasta 30 valores; un grupo familiar más grande necesita partir la consulta.
+  const accounts = await db.collection("accounts").where("affiliateId", "in", ids).get();
+  // Android toma la primera cuenta del asociado; acá puede haber varias (revocadas incluidas), así que gana la activa.
+  const accountStatus = (id: string) => {
+    const statuses = accounts.docs.filter((d) => d.get("affiliateId") === id).map((d) => d.get("status"));
+    return statuses.includes("active") ? "active" : statuses.includes("awaiting_acceptance") ? "awaiting_acceptance" : "no_account";
+  };
+  const person = (d: typeof found) => {
+    const years = age(d.get("birthDate"));
+    return {
+      id: d.id, firstName: d.get("firstName"), lastName: d.get("lastName"), dni: d.get("dni"), age: years,
+      status: isDependent(d) ? "dependent" : accountStatus(d.id),
+    };
+  };
+  return {
+    holder: { ...person(holder), number: holder.get("number"), plan: holder.get("plan") },
+    members: members.docs.map(person).sort((a, b) => b.age - a.age),
+  };
 });
 
 // --- Turnos ---

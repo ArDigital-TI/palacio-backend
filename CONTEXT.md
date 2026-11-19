@@ -24,8 +24,11 @@ Empleado del área de Adhesiones de la Fundación que activa las cuentas de los 
 _Avoid_: admin, back-office
 
 **Consola del operador**:
-Herramienta web interna con la que el operador activa las cuentas de los titulares. Es aparte de la app de los asociados.
+Herramienta web interna con la que el operador busca asociados en el padrón, ve su ficha y activa las cuentas de los titulares. Es aparte de la app de los asociados.
 _Avoid_: back-office, panel de admin
+
+**Ficha**:
+Vista de la consola del operador con un titular y su grupo familiar, cada miembro con su estado (a cargo, sin cuenta, pendiente de aceptación, cuenta activa).
 
 **Acceso de operador**:
 Permiso para usar la consola del operador. Lo otorga un administrador del sistema; nadie lo pide desde la consola.

@@ -7,6 +7,7 @@
   --bg: #EEF2EE; --surface: #FFFFFF; --surface-2: #E4EAE5; --fg: #17211C; --muted: #59665F; --line: #D0D9D2;
   --accent: #1D6B50; --accent-fg: #FFFFFF; --accent-soft: #D9ECE2;
   --danger: #B3261E; --danger-soft: #F7E0DC;
+  --info: #1F4E8C; --info-soft: #DCE8F7;
   --font: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   color-scheme: light;
@@ -16,6 +17,7 @@
     --bg: #0F1412; --surface: #18201C; --surface-2: #222C27; --fg: #E5ECE7; --muted: #98A69E; --line: #2E3A34;
     --accent: #5DC29A; --accent-fg: #06241A; --accent-soft: #163428;
     --danger: #F08A80; --danger-soft: #3B1A16;
+    --info: #9CC0F0; --info-soft: #1A2A40;
     color-scheme: dark;
   }
 }
@@ -49,3 +51,14 @@ th { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color:
 .activate-row input { font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .25em; width: 7ch }
 .msg-ok { color: var(--accent); font-weight: 700 }
 .msg-error { color: var(--danger); font-size: .9rem; margin-top: 6px }
+
+.search-row { display: flex; gap: 8px }
+.search-row input { flex: 1; max-width: 360px }
+.link { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-align: left }
+.record { display: grid; gap: 12px; justify-items: start }
+.record table { justify-self: stretch }
+.record h3 { margin: 4px 0 0; font-size: 1.1rem }
+tr.highlight td { background: var(--accent-soft) }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: .82rem; font-weight: 600; background: var(--surface-2); color: var(--muted) }
+.pill-active { background: var(--accent-soft); color: var(--accent) }
+.pill-awaiting_acceptance, .pill-dependent { background: var(--info-soft); color: var(--info) }

@@ -1,8 +1,8 @@
 import { httpsCallable } from "firebase/functions";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { functions } from "./firebase.ts";
 
-type Holder = { id: string; firstName: string; lastName: string; dni: string };
+export type Holder = { id: string; firstName: string; lastName: string; dni: string };
 // Los errores de dominio de `activateHolder` (functions/src/index.ts).
 type DomainError = "IS_DEPENDENT" | "IS_ADHERENT" | "ALREADY_ACTIVE" | "INVALID_CODE";
 
@@ -13,7 +13,7 @@ const ERROR_MESSAGES: Record<DomainError, string> = {
   ALREADY_ACTIVE: "Este asociado ya tiene una cuenta activa.",
   INVALID_CODE: "Código inválido. Verifique el código que muestra la app del asociado.",
 };
-const UNEXPECTED_MESSAGE = "No se pudo completar. Revise la conexión e intente de nuevo.";
+export const UNEXPECTED_MESSAGE = "No se pudo completar. Revise la conexión e intente de nuevo.";
 
 const holdersWithoutAccount = httpsCallable<void, Holder[]>(functions, "holdersWithoutAccount");
 const activateHolder = httpsCallable<{ affiliateId: string; code: string }, { error: DomainError | null }>(
@@ -84,11 +84,27 @@ export function Holders() {
 }
 
 function HolderRow({ holder, onActivated, onAttempt }: { holder: Holder; onActivated: () => void; onAttempt: () => void }) {
+  return (
+    <tr>
+      <td>
+        {holder.lastName}, {holder.firstName}
+      </td>
+      <td className="mono">{holder.dni}</td>
+      <td>
+        <ActivationForm holder={holder} onActivated={onActivated} onAttempt={onAttempt} />
+      </td>
+    </tr>
+  );
+}
+
+/** Campo del código de activación y botón Activar de un titular, con el error de dominio debajo. */
+export function ActivationForm({ holder, onActivated, onAttempt }: { holder: Holder; onActivated: () => void; onAttempt: () => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const name = `${holder.firstName} ${holder.lastName}`;
-  const errorId = `error-${holder.id}`;
+  // La misma persona puede estar en la lista y en una ficha abierta: el id tiene que ser único por formulario.
+  const errorId = useId();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -107,34 +123,28 @@ function HolderRow({ holder, onActivated, onAttempt }: { holder: Holder; onActiv
   };
 
   return (
-    <tr>
-      <td>
-        {holder.lastName}, {holder.firstName}
-      </td>
-      <td className="mono">{holder.dni}</td>
-      <td>
-        <form className="activate-row" onSubmit={submit}>
-          <input
-            aria-label={`Código de ${name}`}
-            aria-describedby={error ? errorId : undefined}
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={4}
-            pattern="\d{4}"
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          />
-          <button className="btn" disabled={isBusy} aria-label={`Activar a ${name}`}>
-            Activar
-          </button>
-        </form>
-        {error && (
-          <p id={errorId} className="msg-error" role="alert">
-            {error}
-          </p>
-        )}
-      </td>
-    </tr>
+    <>
+      <form className="activate-row" onSubmit={submit}>
+        <input
+          aria-label={`Código de ${name}`}
+          aria-describedby={error ? errorId : undefined}
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          pattern="\d{4}"
+          required
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+        />
+        <button className="btn" disabled={isBusy} aria-label={`Activar a ${name}`}>
+          Activar
+        </button>
+      </form>
+      {error && (
+        <p id={errorId} className="msg-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
   );
 }

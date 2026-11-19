@@ -33,7 +33,9 @@ function af(
   id: string, firstName: string, lastName: string, dni: string, number: string,
   plan: string, birthDate: string, holderId: string | null, phone: string, email: string,
 ) {
-  affiliates[id] = { firstName, lastName, dni, number, plan, birthDate, holderId, phone, email };
+  // `lastNameKey`: el apellido en minúsculas y sin acentos, para buscar (igual que `searchKey` de las Functions).
+  const lastNameKey = lastName.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+  affiliates[id] = { firstName, lastName, lastNameKey, dni, number, plan, birthDate, holderId, phone, email };
 }
 af("a1", "Marcelo", "Aráoz", "24356871", "FP-104233-00", "family", "1975-03-12", null, "381 555-2143", "marcelo.araoz@correo.com");
 af("a2", "Silvia", "Medina", "28911402", "FP-104233-01", "family", "1981-06-02", "a1", "", "");

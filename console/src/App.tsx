@@ -1,6 +1,7 @@
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { auth } from "./firebase.ts";
+import { CreateHolder } from "./CreateHolder.tsx";
 import { Holders } from "./Holders.tsx";
 import { Search } from "./Search.tsx";
 
@@ -10,7 +11,7 @@ type Session = { status: "loading" } | { status: "signedOut" } | { status: "sign
 export function App() {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [signInError, setSignInError] = useState(false);
-  // Al activar desde la ficha, la lista de titulares sin cuenta se vuelve a pedir.
+  // Al activar desde la ficha o dar de alta un titular, la lista de titulares sin cuenta se vuelve a pedir.
   const [holdersVersion, setHoldersVersion] = useState(0);
 
   const signIn = () => {
@@ -87,6 +88,7 @@ export function App() {
         {signOutButton}
       </header>
       <Search onActivated={() => setHoldersVersion((v) => v + 1)} />
+      <CreateHolder onCreated={() => setHoldersVersion((v) => v + 1)} />
       <Holders key={holdersVersion} />
     </div>
   );

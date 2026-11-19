@@ -29,7 +29,7 @@ h1 { font-size: 1.5rem }
 h2 { font-size: 1.2rem }
 p { margin: 0 }
 button { font: inherit; cursor: pointer }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
 input { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px }
 
 .muted { color: var(--muted) }
@@ -62,3 +62,10 @@ tr.highlight td { background: var(--accent-soft) }
 .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: .82rem; font-weight: 600; background: var(--surface-2); color: var(--muted) }
 .pill-active { background: var(--accent-soft); color: var(--accent) }
 .pill-awaiting_acceptance, .pill-dependent { background: var(--info-soft); color: var(--info) }
+
+details.card > summary { cursor: pointer; list-style-position: outside; margin-left: 1.2em }
+details.card > summary h2 { display: inline }
+.create-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; align-items: end }
+.create-form label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); font-weight: 600 }
+.create-form input, .create-form select { color: var(--fg); font-weight: 400; font-size: 15px }
+select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px }

@@ -219,6 +219,40 @@ export const affiliateRecord = onCall<{ affiliateId?: unknown }>(async (request)
   };
 });
 
+/**
+ * Alta de un titular de prueba en el padrón, sin cuenta. Solo el operador.
+ * ponytail: temporal, hasta que el padrón llegue del sistema de la Fundación; `createdBy` marca estas altas para
+ * borrarlas entonces.
+ */
+export const createHolder = onCall<Record<string, unknown>>(async (request) => {
+  requireOperator(request);
+  const d = request.data ?? {};
+  const firstName = text(d.firstName).trim();
+  const lastName = text(d.lastName).trim();
+  const dni = text(d.dni);
+  const birthDate = text(d.birthDate);
+  const plan = text(d.plan);
+  // La fecha tiene que existir: `Date.parse` da NaN con el mes 13 y corre 1980-02-31 a marzo, que la comparación detecta.
+  const time = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? Date.parse(birthDate) : NaN;
+  const isRealDate = !Number.isNaN(time) && new Date(time).toISOString().startsWith(birthDate);
+  if (!firstName || !lastName || !/^\d{7,8}$/.test(dni) || !isRealDate || age(birthDate) < 18 || (plan !== "family" && plan !== "comprehensive")) {
+    throw new HttpsError("invalid-argument", "Datos del titular inválidos.");
+  }
+
+  const affiliates = db.collection("affiliates");
+  const ref = affiliates.doc();
+  await db.runTransaction(async (tx) => {
+    if (!(await tx.get(affiliates.where("dni", "==", dni).limit(1))).empty) {
+      throw new HttpsError("already-exists", "Ese DNI ya está en el padrón.");
+    }
+    tx.create(ref, {
+      firstName, lastName, lastNameKey: searchKey(lastName), dni, number: `FP-PRUEBA-${dni}`, plan, birthDate,
+      holderId: null, phone: "", email: "", createdBy: request.auth!.uid, createdAt: Date.now(),
+    });
+  });
+  return { id: ref.id };
+});
+
 // --- Turnos ---
 
 // ponytail: zona horaria fija de las sedes (Argentina, UTC-3, sin horario de verano). Si hay sedes en otra zona,

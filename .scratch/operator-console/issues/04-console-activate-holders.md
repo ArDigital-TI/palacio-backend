@@ -16,11 +16,11 @@
   - los errores de dominio, con el mismo texto que en la app de Android.
 - [x] Cerrar sesión.
 - [x] Usa los tokens de color y tipografía (Nunito) del mockup, en español y para escritorio.
-- [ ] Firebase Hosting en `firebase.json`, y `npm run deploy:dev` incluye `hosting`. El dominio de Hosting queda autorizado para Google en Auth (viene así por defecto, pero hay que verificarlo).
+- [x] Firebase Hosting en `firebase.json`, y `npm run deploy:dev` incluye `hosting`. El dominio de Hosting queda autorizado para Google en Auth (viene así por defecto, pero hay que verificarlo).
 - [x] El README del backend documenta cómo correrla y desplegarla.
 - [ ] Recorrido manual en el emulador: Rosa entra en la app de Android (`local`) y elige «Soy titular». El operador la activa desde la consola local y la app de Rosa pasa sola a Inicio.
 - [ ] Recorrido manual en `dev`:
-  - se le da acceso de operador a una cuenta real con `grant-operator:dev`;
+  - [x] se le da acceso de operador a una cuenta real con `grant-operator:dev`;
   - un titular real entra en `devDebug`;
   - el operador lo activa desde la consola desplegada;
   - el titular ve Inicio.
@@ -40,3 +40,5 @@ Spec: [spec.md](../spec.md)
 - El panel del navegador de Claude abre el popup en la misma pestaña, así que ahí la entrada se hizo con la misma credencial de Google del emulador (`signInWithCredential`). En un navegador normal el popup vuelve solo a la consola.
 - Nunito sale de los `.ttf` de la app de Android (`console/public/fonts`, con su licencia OFL). El mockup usa Figtree, pero el ticket pide Nunito, que es la de la app.
 - La consola no tiene tests automáticos, como dice el spec.
+- 2026-11-19: desplegada en `dev` con `npm run deploy:dev` (https://palacio-mobile-a61b7.web.app); el deploy borró `demoPendingLinkToken`, como anticipaba el ticket 11 de Android. Con una cuenta real de Google: antes del acceso vio «Sin acceso de operador»; después de `grant-operator:dev` entró y vio la lista de titulares, así que el dominio de Hosting está autorizado. Faltan los dos recorridos con la app de Android (en `dev` con un titular real y en el emulador con Rosa).
+- `grant-operator:dev` usa las credenciales de `gcloud auth application-default`, que son otras que las de la CLI de Firebase. Si su *quota project* es otro proyecto, falla con `Identity Toolkit API has not been used in project …`. Se arregla con `gcloud auth application-default login` (con la cuenta del proyecto) y `gcloud auth application-default set-quota-project palacio-mobile-a61b7`.

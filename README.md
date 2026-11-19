@@ -82,7 +82,7 @@ La primera vez, `deploy:dev` habilita las APIs que faltan (Cloud Functions, Clou
 - con `gcloud auth application-default login`;
 - con una clave de cuenta de servicio, poniendo su ruta en `GOOGLE_APPLICATION_CREDENTIALS`.
 
-Con esas mismas credenciales, `npm run grant-operator:dev -- <correo>` y `npm run revoke-operator:dev -- <correo>` dan y quitan el acceso de operador en `dev`. La persona tiene que haber entrado antes una vez a la consola con su cuenta de Google.
+Con esas mismas credenciales, `npm run grant-operator:dev -- <correo>` y `npm run revoke-operator:dev -- <correo>` dan y quitan el acceso de operador en `dev`. La persona tiene que haber entrado antes una vez a la consola con su cuenta de Google. Si fallan con `Identity Toolkit API has not been used in project …` y el proyecto que nombran no es el de `dev`, las credenciales cargan la cuota a otro proyecto: `gcloud auth application-default set-quota-project <id del proyecto dev>`.
 
 ### La app
 

@@ -8,4 +8,5 @@ Descartamos las lecturas dentro de las reglas, que siempre están al día, porqu
 
 - Después de que cambia el estado de su cuenta, la app fuerza la actualización del token (`getIdToken(true)`) para tomar los claims nuevos.
 - `revoke` también revoca los tokens del adherente (`revokeRefreshTokens`). Si no, el adherente conservaría el acceso hasta que su token venza, hasta una hora después.
+- El acceso de operador también es un claim, `operator`, pero no lo escriben las Functions: lo dan y lo quitan los scripts `grant-operator` y `revoke-operator`. Quitarlo revoca los tokens por la misma razón.
 - Excepción: los claims no listan a los miembros a cargo, porque dejan de serlo al cumplir 18. La regla que crea una solicitud de asistencia para un miembro a cargo lee ese asociado (`get()` sobre `affiliates`). Es una lectura solo al crear la solicitud, no en cada acceso. El resto de lo que el titular hace por un miembro a cargo (turnos) pasa por Functions.

@@ -14,10 +14,12 @@ const projectArg = process.argv.indexOf("--project");
 const aliases: Record<string, string> = JSON.parse(readFileSync(new URL("../.firebaserc", import.meta.url), "utf8")).projects;
 const projectName = projectArg >= 0 ? process.argv[projectArg + 1] : undefined;
 const REAL_PROJECT = projectName && (aliases[projectName] ?? projectName);
+if (projectArg >= 0 && !REAL_PROJECT) throw new Error("Falta el proyecto después de --project.");
 if (REAL_PROJECT === "dev") throw new Error("Falta el alias dev: npx firebase use --add (ver README.md).");
+if (REAL_PROJECT?.startsWith("demo-")) throw new Error(`${REAL_PROJECT} es del emulador: use el comando sin :dev.`);
 if (!REAL_PROJECT) process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";
 
-initializeApp({ projectId: REAL_PROJECT || "demo-palacio" });
+initializeApp({ projectId: REAL_PROJECT ?? "demo-palacio" });
 const auth = getAuth();
 
 const user = await auth.getUserByEmail(email).catch((e) => {

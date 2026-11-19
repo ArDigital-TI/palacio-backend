@@ -6,3 +6,5 @@ console/.env.dev
 .firebase/
 *-debug.log
 .scratch/handoffs/
+.serena/
+.claude/
